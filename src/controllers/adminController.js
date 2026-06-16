@@ -56,11 +56,12 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Get all customers with their order stats
+// @desc    Get all customers with their order stats (registered + guests)
 // @route   GET /api/admin/customers
 // @access  Private/Admin
 const getCustomers = asyncHandler(async (req, res) => {
-  const customers = await User.aggregate([
+  // 1. Registered customers
+  const registered = await User.aggregate([
     { $match: { role: 'customer' } },
     {
       $lookup: {
@@ -78,13 +79,48 @@ const getCustomers = asyncHandler(async (req, res) => {
         isActive: 1,
         createdAt: 1,
         totalOrders: { $size: '$orders' },
-        totalSpent: { $sum: '$orders.total' }
+        totalSpent: { $sum: '$orders.total' },
+        isGuest: { $literal: false }
       }
     },
     { $sort: { createdAt: -1 } }
   ]);
 
-  res.json(customers);
+  // 2. Guest customers (aggregated from orders where isGuest = true)
+  const guests = await Order.aggregate([
+    { $match: { isGuest: true } },
+    {
+      $group: {
+        _id: { $toLower: { $ifNull: ['$shippingAddress.email', '$shippingAddress.phone'] } },
+        name:       { $first: '$shippingAddress.fullName' },
+        email:      { $first: '$shippingAddress.email' },
+        phone:      { $first: '$shippingAddress.phone' },
+        createdAt:  { $min: '$createdAt' },
+        totalOrders:{ $sum: 1 },
+        totalSpent: { $sum: '$total' }
+      }
+    },
+    {
+      $project: {
+        _id: 1,
+        name: { $ifNull: ['$name', 'Guest'] },
+        email: { $ifNull: ['$email', '—'] },
+        phone: { $ifNull: ['$phone', '—'] },
+        createdAt: 1,
+        totalOrders: 1,
+        totalSpent: 1,
+        isActive: { $literal: true },
+        isGuest: { $literal: true }
+      }
+    },
+    { $sort: { createdAt: -1 } }
+  ]);
+
+  // Filter out guests whose email matches a registered user (they ordered as both)
+  const registeredEmails = new Set(registered.map(r => r.email?.toLowerCase()).filter(Boolean));
+  const uniqueGuests = guests.filter(g => !registeredEmails.has(g.email?.toLowerCase()));
+
+  res.json([...registered, ...uniqueGuests]);
 });
 
 // @desc    Activate or deactivate customer account
