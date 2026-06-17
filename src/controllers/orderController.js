@@ -40,6 +40,38 @@ const placeOrder = asyncHandler(async (req, res) => {
     }
   }
 
+  // Re-validate coupon server-side
+  let validatedDiscount = 0;
+  if (couponCode) {
+    try {
+      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+      if (coupon) {
+        const now = new Date();
+        const isValid = now >= coupon.validFrom && now <= coupon.validUntil;
+        const withinUsageLimit = !coupon.usageLimit || coupon.usedCount < coupon.usageLimit;
+        const notUsedByUser = !req.user?._id || !coupon.usedBy.some(id => id.toString() === req.user._id.toString());
+        const meetsMinOrder = subtotal >= coupon.minOrderAmount;
+
+        if (isValid && withinUsageLimit && notUsedByUser && meetsMinOrder) {
+          if (coupon.type === 'percentage') {
+            validatedDiscount = (subtotal * coupon.value) / 100;
+            if (coupon.maxDiscount && validatedDiscount > coupon.maxDiscount) {
+              validatedDiscount = coupon.maxDiscount;
+            }
+          } else {
+            validatedDiscount = Math.min(coupon.value, subtotal);
+          }
+          // Update coupon usage
+          coupon.usedCount += 1;
+          if (req.user?._id) coupon.usedBy.push(req.user._id);
+          await coupon.save();
+        }
+      }
+    } catch (err) {
+      console.error('[Order] Coupon validation error:', err.message);
+    }
+  }
+
   const order = new Order({
     customer: req.user?._id || undefined,
     isGuest: !req.user,
@@ -48,27 +80,14 @@ const placeOrder = asyncHandler(async (req, res) => {
     paymentMethod: paymentMethod || 'Cash on Delivery',
     subtotal,
     shippingCost,
-    discount,
+    discount: validatedDiscount,
     couponCode: couponCode || undefined,
-    total,
+    total: subtotal - validatedDiscount + shippingCost,
     notes,
     statusHistory: [{ status: 'pending', note: 'Order placed successfully' }]
   });
 
   const createdOrder = await order.save();
-
-  if (couponCode && discount > 0) {
-    try {
-      const updateData = { $inc: { usedCount: 1 } };
-      if (req.user?._id) {
-        updateData.$addToSet = { usedBy: req.user._id };
-      }
-      await Coupon.findOneAndUpdate(
-        { code: couponCode.toUpperCase() },
-        updateData
-      );
-    } catch (_) {}
-  }
 
   res.status(201).json(createdOrder);
 
@@ -166,6 +185,18 @@ const cancelOrder = asyncHandler(async (req, res) => {
   }
 
   await order.save();
+
+  // Restore coupon usage
+  if (order.couponCode) {
+    try {
+      const updateData = { $inc: { usedCount: -1 } };
+      if (req.user?._id) {
+        updateData.$pull = { usedBy: req.user._id };
+      }
+      await Coupon.findOneAndUpdate({ code: order.couponCode.toUpperCase() }, updateData);
+    } catch (_) {}
+  }
+
   res.json({ message: 'Order cancelled successfully', order });
 });
 
@@ -334,7 +365,7 @@ const deleteOrder = asyncHandler(async (req, res) => {
   }
 
   // Restore stock for non-cancelled/non-delivered orders
-  if (!['cancelled', 'delivered'].includes(order.status)) {
+  if (!['cancelled', 'delivered'].includes(order.orderStatus)) {
     for (const item of order.items) {
       const product = await Product.findById(item.product);
       if (product) {
@@ -342,6 +373,17 @@ const deleteOrder = asyncHandler(async (req, res) => {
         await product.save();
       }
     }
+  }
+
+  // Restore coupon usage for non-cancelled/non-delivered orders
+  if (order.couponCode && !['cancelled', 'delivered'].includes(order.orderStatus)) {
+    try {
+      const updateData = { $inc: { usedCount: -1 } };
+      if (order.customer) {
+        updateData.$pull = { usedBy: order.customer };
+      }
+      await Coupon.findOneAndUpdate({ code: order.couponCode.toUpperCase() }, updateData);
+    } catch (_) {}
   }
 
   await Order.findByIdAndDelete(req.params.id);

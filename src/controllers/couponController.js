@@ -5,7 +5,8 @@ const Coupon = require('../models/Coupon');
 // @route   POST /api/coupons/validate
 // @access  Private
 const validateCoupon = asyncHandler(async (req, res) => {
-  const { code, orderAmount } = req.body;
+  const { code, orderAmount, subtotal } = req.body;
+  const amount = orderAmount || subtotal || 0;
 
   const coupon = await Coupon.findOne({ code: code.toUpperCase(), isActive: true });
 
@@ -22,7 +23,7 @@ const validateCoupon = asyncHandler(async (req, res) => {
   }
 
   // Check min order amount
-  if (orderAmount < coupon.minOrderAmount) {
+  if (amount < coupon.minOrderAmount) {
     res.status(400);
     throw new Error(`Minimum order amount of ${coupon.minOrderAmount} required`);
   }
@@ -34,7 +35,7 @@ const validateCoupon = asyncHandler(async (req, res) => {
   }
 
   // Check if user already used it (skip for guests)
-  if (req.user && coupon.usedBy.includes(req.user._id)) {
+  if (req.user && coupon.usedBy.some(id => id.toString() === req.user._id.toString())) {
     res.status(400);
     throw new Error('You have already used this coupon');
   }
@@ -42,17 +43,20 @@ const validateCoupon = asyncHandler(async (req, res) => {
   // Calculate discount
   let discountAmount = 0;
   if (coupon.type === 'percentage') {
-    discountAmount = (orderAmount * coupon.value) / 100;
+    discountAmount = (amount * coupon.value) / 100;
     if (coupon.maxDiscount && discountAmount > coupon.maxDiscount) {
       discountAmount = coupon.maxDiscount;
     }
   } else {
     discountAmount = coupon.value;
+    if (discountAmount > amount) discountAmount = amount;
   }
 
   res.json({
     couponId: coupon._id,
     code: coupon.code,
+    type: coupon.type,
+    value: coupon.value,
     discountAmount,
     message: 'Coupon applied successfully'
   });
