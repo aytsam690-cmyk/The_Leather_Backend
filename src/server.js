@@ -58,6 +58,50 @@ app.get('/', (req, res) => {
   res.send('API is running...');
 });
 
+// ─── Dynamic Sitemap.xml ─────────────────────────────────────────────────────
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const Product = require('./models/Product');
+    const Category = require('./models/Category');
+    const Settings = require('./models/Settings');
+
+    const products = await Product.find({ isActive: { $ne: false } }).select('slug updatedAt').lean();
+    const categories = await Category.find({}).select('name').lean();
+    const settings = await Settings.findOne({}).lean();
+
+    // Use FRONTEND_URL as the site domain
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim();
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+
+    // Static pages
+    const staticPages = ['/', '/products', '/about', '/track-order'];
+    for (const page of staticPages) {
+      xml += `  <url>\n    <loc>${frontendUrl}${page}</loc>\n    <changefreq>${page === '/' ? 'daily' : 'weekly'}</changefreq>\n    <priority>${page === '/' ? '1.0' : '0.8'}</priority>\n  </url>\n`;
+    }
+
+    // Product pages
+    for (const p of products) {
+      const slug = p.slug || p._id;
+      const lastmod = p.updatedAt ? new Date(p.updatedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      xml += `  <url>\n    <loc>${frontendUrl}/products/${slug}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.9</priority>\n  </url>\n`;
+    }
+
+    // Category pages
+    for (const c of categories) {
+      xml += `  <url>\n    <loc>${frontendUrl}/products?category=${encodeURIComponent(c.name)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+    }
+
+    xml += '</urlset>';
+
+    res.set('Content-Type', 'application/xml');
+    res.send(xml);
+  } catch (err) {
+    res.status(500).send('Error generating sitemap');
+  }
+});
+
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 // Route imports
