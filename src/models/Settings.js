@@ -13,6 +13,7 @@ const settingsSchema = new mongoose.Schema({
   freeShippingAbove: { type: Number, default: 100 },
   courierName: { type: String, default: '' },
   courierWebsite: { type: String, default: '' },
+  whatsappNumber: { type: String, default: '' },
   socialLinks: [socialLinkSchema],
   contactInfo: {
     email: { type: String },

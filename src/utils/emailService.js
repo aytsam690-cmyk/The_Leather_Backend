@@ -7,17 +7,6 @@ const getClient = () => new BrevoClient({
   apiKey: process.env.BREVO_API_KEY,
 });
 
-// ─── HTML escape to prevent HTML injection in emails ─────────────────────────
-const escapeHtml = (str) => {
-  if (str === null || str === undefined) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;');
-};
-
 // ─── Shared constants ─────────────────────────────────────────────────────────
 const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
 const YEAR         = new Date().getFullYear();
@@ -114,9 +103,9 @@ const sendWelcomeEmail = async (to, name) => {
   const { brand, senderName } = await getBrandInfo();
   const shopUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const html = wrap(
-    header('🎉', `Welcome to ${escapeHtml(brand)}!`, escapeHtml(brand)) +
+    header('🎉', `Welcome to ${brand}!`, brand) +
     body(`
-      <p style="font-size:16px;line-height:1.6;">Hi <strong>${escapeHtml(name)}</strong>,</p>
+      <p style="font-size:16px;line-height:1.6;">Hi <strong>${name}</strong>,</p>
       <p style="font-size:16px;line-height:1.6;">Thanks for creating your account! You're all set to start shopping the best deals.</p>
       ${btn(shopUrl + '/products', 'Start Shopping')}
       <p style="font-size:14px;color:#94a3b8;">Here's what you can do:</p>
@@ -126,9 +115,9 @@ const sendWelcomeEmail = async (to, name) => {
         <li>Track your orders in real-time</li>
         <li>Get exclusive deals &amp; discounts</li>
       </ul>
-    `, escapeHtml(brand))
+    `, brand)
   );
-  await send(to, `Welcome to ${escapeHtml(brand)}! 🎉`, html, senderName);
+  await send(to, `Welcome to ${brand}! 🎉`, html, senderName);
 };
 
 // ─── 3. Order Confirmation ────────────────────────────────────────────────────
@@ -138,20 +127,20 @@ const sendOrderConfirmationEmail = async (to, order) => {
 
   const itemRows = (order.items || []).map(item => `
     <tr>
-      <td style="padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.06);color:#e2e8f0;font-size:14px;">${escapeHtml(item.name || item.product?.name || 'Product')}</td>
-      <td style="padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.06);color:#94a3b8;font-size:14px;text-align:center;">x${escapeHtml(item.quantity)}</td>
+      <td style="padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.06);color:#e2e8f0;font-size:14px;">${item.name || item.product?.name || 'Product'}</td>
+      <td style="padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.06);color:#94a3b8;font-size:14px;text-align:center;">x${item.quantity}</td>
       <td style="padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.06);color:#e2e8f0;font-size:14px;text-align:right;">${cs}${(item.price * item.quantity).toFixed(2)}</td>
     </tr>`).join('');
 
   const html = wrap(
-    header('✅', 'Order Confirmed!', escapeHtml(brand)) +
+    header('✅', 'Order Confirmed!', brand) +
     body(`
-      <p style="font-size:16px;line-height:1.6;">Hi <strong>${escapeHtml(order.shippingAddress?.fullName || 'there')}</strong>,</p>
+      <p style="font-size:16px;line-height:1.6;">Hi <strong>${order.shippingAddress?.fullName || 'there'}</strong>,</p>
       <p style="font-size:16px;line-height:1.6;">Your order has been placed successfully!</p>
 
       <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px;margin:24px 0;">
         <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Order Number</p>
-        <p style="margin:0;font-size:20px;font-weight:bold;color:#C9A96E;">${escapeHtml(order.orderNumber)}</p>
+        <p style="margin:0;font-size:20px;font-weight:bold;color:#C9A96E;">${order.orderNumber}</p>
       </div>
 
       <table style="width:100%;border-collapse:collapse;margin:16px 0;">
@@ -171,11 +160,11 @@ const sendOrderConfirmationEmail = async (to, order) => {
         <p style="font-size:18px;color:white;font-weight:bold;margin:8px 0;">Total: ${cs}${(order.total || 0).toFixed(2)}</p>
       </div>
 
-      <p style="font-size:14px;color:#94a3b8;">Payment: <strong>${escapeHtml(order.paymentMethod || 'Cash on Delivery')}</strong></p>
+      <p style="font-size:14px;color:#94a3b8;">Payment: <strong>${order.paymentMethod || 'Cash on Delivery'}</strong></p>
       ${btn(shopUrl + '/track-order', 'Track Your Order')}
-    `, escapeHtml(brand))
+    `, brand)
   );
-  await send(to, `Order Confirmed #${escapeHtml(order.orderNumber)} - ${escapeHtml(brand)}`, html, senderName);
+  await send(to, `Order Confirmed #${order.orderNumber} - ${brand}`, html, senderName);
 };
 
 // ─── 4. Order Status Update ───────────────────────────────────────────────────
@@ -191,52 +180,52 @@ const sendOrderStatusEmail = async (to, order, newStatus) => {
   };
 
   const config = statusConfig[newStatus] || {
-    emoji: '📋', title: `Order ${escapeHtml(newStatus)}`,
-    msg: `Your order status has been updated to: ${escapeHtml(newStatus)}.`,
+    emoji: '📋', title: `Order ${newStatus}`,
+    msg: `Your order status has been updated to: ${newStatus}.`,
   };
 
   const html = wrap(
-    header(config.emoji, config.title, escapeHtml(brand)) +
+    header(config.emoji, config.title, brand) +
     body(`
-      <p style="font-size:16px;line-height:1.6;">Hi <strong>${escapeHtml(order.shippingAddress?.fullName || 'there')}</strong>,</p>
+      <p style="font-size:16px;line-height:1.6;">Hi <strong>${order.shippingAddress?.fullName || 'there'}</strong>,</p>
       <p style="font-size:16px;line-height:1.6;">${config.msg}</p>
 
       <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px;margin:24px 0;">
         <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Order Number</p>
-        <p style="margin:0 0 12px;font-size:20px;font-weight:bold;color:#C9A96E;">${escapeHtml(order.orderNumber)}</p>
+        <p style="margin:0 0 12px;font-size:20px;font-weight:bold;color:#C9A96E;">${order.orderNumber}</p>
         <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Status</p>
-        <p style="margin:0;font-size:16px;font-weight:bold;color:#22c55e;text-transform:capitalize;">${escapeHtml(newStatus)}</p>
+        <p style="margin:0;font-size:16px;font-weight:bold;color:#22c55e;text-transform:capitalize;">${newStatus}</p>
       </div>
 
-      ${order.trackingId ? `<p style="font-size:14px;color:#94a3b8;">Tracking Number: <strong>${escapeHtml(order.trackingId)}</strong></p>` : ''}
+      ${order.trackingId ? `<p style="font-size:14px;color:#94a3b8;">Tracking Number: <strong>${order.trackingId}</strong></p>` : ''}
       ${btn(shopUrl + '/track-order', 'View Order Details')}
-    `, escapeHtml(brand))
+    `, brand)
   );
-  await send(to, `${config.title} #${escapeHtml(order.orderNumber)} - ${escapeHtml(brand)}`, html, senderName);
+  await send(to, `${config.title} #${order.orderNumber} - ${brand}`, html, senderName);
 };
 
 // ─── 5. Low Stock Alert (Admin) ───────────────────────────────────────────────
 const sendLowStockAlertEmail = async (to, product) => {
   const { brand, senderName } = await getBrandInfo();
   const html = wrap(
-    header('⚠️', 'Low Stock Alert', escapeHtml(brand)) +
+    header('⚠️', 'Low Stock Alert', brand) +
     body(`
       <p style="font-size:16px;line-height:1.6;">Hello Admin,</p>
       <p style="font-size:16px;line-height:1.6;">The following product is running low on stock:</p>
 
       <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px;margin:24px 0;">
         <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Product Name</p>
-        <p style="margin:0 0 12px;font-size:20px;font-weight:bold;color:#C9A96E;">${escapeHtml(product.name)}</p>
+        <p style="margin:0 0 12px;font-size:20px;font-weight:bold;color:#C9A96E;">${product.name}</p>
         <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Current Stock</p>
-        <p style="margin:0 0 12px;font-size:16px;font-weight:bold;color:#eab308;">${escapeHtml(product.stock)}</p>
+        <p style="margin:0 0 12px;font-size:16px;font-weight:bold;color:#eab308;">${product.stock}</p>
         <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Low Stock Threshold</p>
-        <p style="margin:0;font-size:16px;font-weight:bold;color:#e2e8f0;">${escapeHtml(product.lowStockAlert || 5)}</p>
+        <p style="margin:0;font-size:16px;font-weight:bold;color:#e2e8f0;">${product.lowStockAlert || 5}</p>
       </div>
 
       <p style="font-size:14px;color:#94a3b8;">Please restock as soon as possible.</p>
-    `, escapeHtml(brand))
+    `, brand)
   );
-  await send(to, `Low Stock Alert: ${escapeHtml(product.name)} - ${escapeHtml(brand)}`, html, senderName);
+  await send(to, `Low Stock Alert: ${product.name} - ${brand}`, html, senderName);
 };
 
 // ─── 6. New Order Notification (Admin) ────────────────────────────────────────
@@ -245,24 +234,24 @@ const sendNewOrderAdminNotification = async (to, order) => {
   
   const itemRows = (order.items || []).map(item => `
     <tr>
-      <td style="padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.06);color:#e2e8f0;font-size:14px;">${escapeHtml(item.name || item.product?.name || 'Product')}</td>
-      <td style="padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.06);color:#94a3b8;font-size:14px;text-align:center;">x${escapeHtml(item.quantity)}</td>
+      <td style="padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.06);color:#e2e8f0;font-size:14px;">${item.name || item.product?.name || 'Product'}</td>
+      <td style="padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.06);color:#94a3b8;font-size:14px;text-align:center;">x${item.quantity}</td>
       <td style="padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.06);color:#e2e8f0;font-size:14px;text-align:right;">${cs}${(item.price * item.quantity).toFixed(2)}</td>
     </tr>`).join('');
 
   const html = wrap(
-    header('🛍️', 'New Order Received', escapeHtml(brand)) +
+    header('🛍️', 'New Order Received', brand) +
     body(`
       <p style="font-size:16px;line-height:1.6;">Hello Admin,</p>
       <p style="font-size:16px;line-height:1.6;">A new order has been placed on your store.</p>
 
       <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px;margin:24px 0;">
         <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Order Number</p>
-        <p style="margin:0 0 12px;font-size:20px;font-weight:bold;color:#C9A96E;">${escapeHtml(order.orderNumber)}</p>
+        <p style="margin:0 0 12px;font-size:20px;font-weight:bold;color:#C9A96E;">${order.orderNumber}</p>
         <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Customer</p>
-        <p style="margin:0;font-size:16px;font-weight:bold;color:#e2e8f0;">${escapeHtml(order.shippingAddress?.fullName || 'Guest')} (${escapeHtml(order.shippingAddress?.email || 'No email')})</p>
-        <p style="margin:4px 0 0;font-size:14px;color:#94a3b8;">Phone: ${escapeHtml(order.shippingAddress?.phone || 'N/A')}</p>
-        <p style="margin:4px 0 0;font-size:14px;color:#94a3b8;">Address: ${escapeHtml(order.shippingAddress?.address || '')}, ${escapeHtml(order.shippingAddress?.city || '')}, ${escapeHtml(order.shippingAddress?.country || '')}</p>
+        <p style="margin:0;font-size:16px;font-weight:bold;color:#e2e8f0;">${order.shippingAddress?.fullName || 'Guest'} (${order.shippingAddress?.email || 'No email'})</p>
+        <p style="margin:4px 0 0;font-size:14px;color:#94a3b8;">Phone: ${order.shippingAddress?.phone || 'N/A'}</p>
+        <p style="margin:4px 0 0;font-size:14px;color:#94a3b8;">Address: ${order.shippingAddress?.address || ''}, ${order.shippingAddress?.city || ''}, ${order.shippingAddress?.country || ''}</p>
       </div>
 
       <table style="width:100%;border-collapse:collapse;margin:16px 0;">
@@ -280,31 +269,31 @@ const sendNewOrderAdminNotification = async (to, order) => {
         <p style="font-size:18px;color:white;font-weight:bold;margin:8px 0;">Total: ${cs}${(order.total || 0).toFixed(2)}</p>
       </div>
 
-      <p style="font-size:14px;color:#94a3b8;">Payment: <strong>${escapeHtml(order.paymentMethod || 'Cash on Delivery')}</strong></p>
-    `, escapeHtml(brand))
+      <p style="font-size:14px;color:#94a3b8;">Payment: <strong>${order.paymentMethod || 'Cash on Delivery'}</strong></p>
+    `, brand)
   );
-  await send(to, `New Order #${escapeHtml(order.orderNumber)} - ${escapeHtml(brand)}`, html, senderName);
+  await send(to, `New Order #${order.orderNumber} - ${brand}`, html, senderName);
 };
 
 // ─── 7. Tracking Email ────────────────────────────────────────────────────────
 const sendTrackingEmail = async ({ to, orderNumber, customerName, trackingId, trackingUrl, courierName }) => {
   const { brand, senderName } = await getBrandInfo();
   const html = wrap(
-    header('🚚', 'Order Shipped!', escapeHtml(brand)) +
+    header('🚚', 'Order Shipped!', brand) +
     body(`
-      <p style="font-size:16px;line-height:1.6;">Hi <strong>${escapeHtml(customerName || 'there')}</strong>,</p>
-      <p style="font-size:16px;line-height:1.6;">Your order <strong>${escapeHtml(orderNumber)}</strong> has been handed over to <strong>${escapeHtml(courierName)}</strong> and is on its way to you.</p>
+      <p style="font-size:16px;line-height:1.6;">Hi <strong>${customerName || 'there'}</strong>,</p>
+      <p style="font-size:16px;line-height:1.6;">Your order <strong>${orderNumber}</strong> has been handed over to <strong>${courierName}</strong> and is on its way to you.</p>
 
       <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px;margin:24px 0;">
         <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Tracking ID</p>
-        <p style="margin:0;font-size:22px;font-weight:bold;color:#C9A96E;font-family:'Courier New',monospace;letter-spacing:0.04em;">${escapeHtml(trackingId)}</p>
-        <p style="margin:8px 0 0;font-size:13px;color:#94a3b8;">via ${escapeHtml(courierName)}</p>
+        <p style="margin:0;font-size:22px;font-weight:bold;color:#C9A96E;font-family:'Courier New',monospace;letter-spacing:0.04em;">${trackingId}</p>
+        <p style="margin:8px 0 0;font-size:13px;color:#94a3b8;">via ${courierName}</p>
       </div>
 
       ${trackingUrl ? btn(trackingUrl, 'Track My Order →') : ''}
-    `, escapeHtml(brand))
+    `, brand)
   );
-  await send(to, `Order Shipped #${escapeHtml(orderNumber)} - ${escapeHtml(brand)}`, html, senderName);
+  await send(to, `Order Shipped #${orderNumber} - ${brand}`, html, senderName);
 };
 
 module.exports = {
