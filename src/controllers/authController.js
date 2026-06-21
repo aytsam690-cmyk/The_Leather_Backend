@@ -54,10 +54,16 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new Error('User already exists');
   }
 
+  const safePassword = ensureString(password);
+  if (!safePassword || safePassword.length < 6) {
+    res.status(400);
+    throw new Error('Password must be at least 6 characters');
+  }
+
   const user = await User.create({
     name: ensureString(name) || '',
     email: safeEmail,
-    password,
+    password: safePassword,
     phone: ensureString(phone) || '',
   });
 
@@ -105,9 +111,15 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new Error('Invalid email format');
   }
 
+  const safePassword = ensureString(password);
+  if (!safePassword) {
+    res.status(400);
+    throw new Error('Invalid password format');
+  }
+
   const user = await User.findOne({ email: safeEmail });
 
-  if (user && user.isActive && (await user.matchPassword(password))) {
+  if (user && user.isActive && (await user.matchPassword(safePassword))) {
     // Extra gate for admin accounts: require the server-side secret key
     if (user.role === 'admin') {
       const validKey = process.env.ADMIN_SECRET_KEY;
@@ -277,8 +289,19 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 const updatePassword = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
 
-  if (user && (await user.matchPassword(req.body.oldPassword))) {
-    user.password = req.body.newPassword;
+  const safeOldPassword = ensureString(req.body.oldPassword);
+  const safeNewPassword = ensureString(req.body.newPassword);
+  if (!safeOldPassword || !safeNewPassword) {
+    res.status(400);
+    throw new Error('Invalid password format');
+  }
+  if (safeNewPassword.length < 6) {
+    res.status(400);
+    throw new Error('New password must be at least 6 characters');
+  }
+
+  if (user && (await user.matchPassword(safeOldPassword))) {
+    user.password = safeNewPassword;
     await user.save();
     res.json({ message: 'Password updated successfully' });
   } else {
@@ -350,7 +373,12 @@ const resetPassword = asyncHandler(async (req, res) => {
   }
 
   // Set new password
-  user.password = req.body.password;
+  const safeNewPassword = ensureString(req.body.password);
+  if (!safeNewPassword || safeNewPassword.length < 6) {
+    res.status(400);
+    throw new Error('Password must be at least 6 characters');
+  }
+  user.password = safeNewPassword;
   user.resetPasswordToken = undefined;
   user.resetPasswordExpire = undefined;
   await user.save();
@@ -364,12 +392,13 @@ const resetPassword = asyncHandler(async (req, res) => {
 const adminLogin = asyncHandler(async (req, res) => {
   const { secretKey } = req.body;
 
-  if (!secretKey) {
+  const safeKey = ensureString(secretKey);
+  if (!safeKey) {
     res.status(400);
     throw new Error('Admin secret key is required');
   }
 
-  if (secretKey !== process.env.ADMIN_SECRET_KEY) {
+  if (safeKey !== process.env.ADMIN_SECRET_KEY) {
     res.status(403);
     throw new Error('Invalid admin secret key. Access denied.');
   }
