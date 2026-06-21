@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
+const rateLimit = require('express-rate-limit');
 const { validateRequest } = require('../middleware/validateRequest');
 const { protect } = require('../middleware/auth');
 const {
@@ -16,6 +17,26 @@ const {
   adminLogin
 } = require('../controllers/authController');
 
+// ── Rate Limiters ────────────────────────────────────────────────────────────
+
+// Strict limiter for admin login (5 attempts per 15 min per IP)
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { message: 'Too many admin login attempts. Try again after 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Standard limiter for auth routes (20 attempts per 15 min per IP)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { message: 'Too many attempts. Try again after 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Validation schemas
 const registerValidation = [
   body('name').notEmpty().withMessage('Name is required'),
@@ -29,11 +50,11 @@ const loginValidation = [
 ];
 
 // Public routes
-router.post('/register', registerValidation, validateRequest, registerUser);
-router.post('/login', loginValidation, validateRequest, loginUser);
-router.post('/admin-login', adminLogin);
-router.post('/forgot-password', forgotPassword);
-router.post('/reset-password/:token', resetPassword);
+router.post('/register', authLimiter, registerValidation, validateRequest, registerUser);
+router.post('/login', authLimiter, loginValidation, validateRequest, loginUser);
+router.post('/admin-login', adminLoginLimiter, adminLogin);
+router.post('/forgot-password', authLimiter, forgotPassword);
+router.post('/reset-password/:token', authLimiter, resetPassword);
 router.post('/refresh-token', refreshAccessToken);
 
 // Protected routes
