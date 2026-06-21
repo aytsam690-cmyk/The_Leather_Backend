@@ -34,7 +34,17 @@ const settingsSchema = new mongoose.Schema({
     buttonLink: { type: String, default: '/products' },
     image:      { type: String, default: '' },
     endDate:    { type: Date, default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
-  }
+  },
+  footerDescription: { type: String, default: '' },
+  footerColumns: [{
+    title: { type: String },
+    links: [{
+      label: { type: String },
+      url: { type: String },
+    }],
+  }],
+  footerCopyright: { type: String, default: '' },
+  footerBottomText: { type: String, default: '' },
 }, {
   timestamps: true
 });
