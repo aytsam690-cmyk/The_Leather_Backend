@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const tokenBlacklist = require('../utils/tokenBlacklist');
 const { sendPasswordResetEmail, sendWelcomeEmail } = require('../utils/emailService');
+const { ensureString } = require('../utils/sanitize');
 
 // Generate short-lived access token (15 minutes)
 const generateAccessToken = (id) => {
@@ -40,17 +41,24 @@ const setRefreshCookie = (res, token) => {
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password, phone } = req.body;
 
-  const userExists = await User.findOne({ email });
+  // Guard against NoSQL injection
+  const safeEmail = ensureString(email);
+  if (!safeEmail) {
+    res.status(400);
+    throw new Error('Invalid email format');
+  }
+
+  const userExists = await User.findOne({ email: safeEmail });
   if (userExists) {
     res.status(400);
     throw new Error('User already exists');
   }
 
   const user = await User.create({
-    name,
-    email,
+    name: ensureString(name) || '',
+    email: safeEmail,
     password,
-    phone,
+    phone: ensureString(phone) || '',
   });
 
   if (user) {
@@ -90,7 +98,14 @@ const registerUser = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password, adminSecretKey } = req.body;
 
-  const user = await User.findOne({ email });
+  // Guard against NoSQL injection
+  const safeEmail = ensureString(email);
+  if (!safeEmail) {
+    res.status(400);
+    throw new Error('Invalid email format');
+  }
+
+  const user = await User.findOne({ email: safeEmail });
 
   if (user && user.isActive && (await user.matchPassword(password))) {
     // Extra gate for admin accounts: require the server-side secret key
@@ -277,7 +292,15 @@ const updatePassword = asyncHandler(async (req, res) => {
 // @access  Public
 const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
-  const user = await User.findOne({ email });
+
+  // Guard against NoSQL injection
+  const safeEmail = ensureString(email);
+  if (!safeEmail) {
+    res.status(400);
+    throw new Error('Invalid email format');
+  }
+
+  const user = await User.findOne({ email: safeEmail });
 
   if (!user) {
     res.status(404);

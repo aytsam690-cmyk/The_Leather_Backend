@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const Coupon = require('../models/Coupon');
+const { ensureString } = require('../utils/sanitize');
 
 // @desc    Validate a coupon code and return discount
 // @route   POST /api/coupons/validate
@@ -8,7 +9,14 @@ const validateCoupon = asyncHandler(async (req, res) => {
   const { code, orderAmount, subtotal } = req.body;
   const amount = orderAmount || subtotal || 0;
 
-  const coupon = await Coupon.findOne({ code: code.toUpperCase(), isActive: true });
+  // Guard against NoSQL injection
+  const safeCode = ensureString(code);
+  if (!safeCode) {
+    res.status(400);
+    throw new Error('Invalid coupon code format');
+  }
+
+  const coupon = await Coupon.findOne({ code: safeCode.toUpperCase(), isActive: true });
 
   if (!coupon) {
     res.status(404);

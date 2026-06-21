@@ -5,6 +5,7 @@ const User = require('../models/User');
 const Coupon = require('../models/Coupon');
 const Settings = require('../models/Settings');
 const { sendOrderConfirmationEmail, sendOrderStatusEmail, sendLowStockAlertEmail, sendNewOrderAdminNotification, sendTrackingEmail } = require('../utils/emailService');
+const { ensureString } = require('../utils/sanitize');
 
 // @desc    Place a new order
 // @route   POST /api/orders/place
@@ -43,8 +44,11 @@ const placeOrder = asyncHandler(async (req, res) => {
   // Re-validate coupon server-side
   let validatedDiscount = 0;
   if (couponCode) {
+    const safeCouponCode = ensureString(couponCode);
     try {
-      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+      const coupon = safeCouponCode
+        ? await Coupon.findOne({ code: safeCouponCode.toUpperCase(), isActive: true })
+        : null;
       if (coupon) {
         const now = new Date();
         const isValid = now >= coupon.validFrom && now <= coupon.validUntil;
