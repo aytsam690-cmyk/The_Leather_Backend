@@ -35,9 +35,18 @@ app.use(cors({
   credentials: true,
 }));
 
+// Security: Reject oversized requests before body parsing even starts
+app.use((req, res, next) => {
+  const contentLength = parseInt(req.headers['content-length'], 10);
+  if (contentLength && contentLength > 2 * 1024 * 1024) { // 2MB hard limit
+    return res.status(413).json({ message: 'Payload too large' });
+  }
+  next();
+});
+
 // Body parsing with size limits
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // Cookie parser for refresh tokens
 app.use(cookieParser());
