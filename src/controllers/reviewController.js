@@ -30,11 +30,21 @@ const createReview = asyncHandler(async (req, res) => {
     throw new Error('Product already reviewed');
   }
 
+  // Sanitize comment: strip HTML tags, limit length
+  const stripHtml = (str) => String(str || '').replace(/<[^>]*>/g, '').trim();
+  const safeComment = stripHtml(comment).slice(0, 2000);
+  const safeRating = Math.min(5, Math.max(1, Number(rating) || 1));
+
+  if (!safeComment) {
+    res.status(400);
+    throw new Error('Review comment is required');
+  }
+
   const review = new Review({
     user: req.user._id,
     product: productId,
-    rating: Number(rating),
-    comment,
+    rating: safeRating,
+    comment: safeComment,
     isApproved: false
   });
 
