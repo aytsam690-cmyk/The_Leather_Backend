@@ -44,7 +44,6 @@ const deleteBanner = asyncHandler(async (req, res) => {
   const banner = await Banner.findById(req.params.id);
   if (banner) {
     if (banner.image) await deleteImageFromCloudinary(banner.image);
-    if (banner.mobileImage) await deleteImageFromCloudinary(banner.mobileImage);
     
     await banner.deleteOne();
     res.json({ message: 'Banner and associated images removed' });

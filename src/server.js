@@ -71,6 +71,10 @@ app.use((req, res, next) => {
   next();
 });
 
+// Security: Reject requests with nested MongoDB operators (e.g. $gt, $ne)
+const { noInjection } = require('./utils/sanitize');
+app.use(noInjection);
+
 // Serve uploaded files as static
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
