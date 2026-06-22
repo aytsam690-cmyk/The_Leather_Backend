@@ -251,7 +251,7 @@ const sendNewOrderAdminNotification = async (to, order) => {
         <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Customer</p>
         <p style="margin:0;font-size:16px;font-weight:bold;color:#e2e8f0;">${order.shippingAddress?.fullName || 'Guest'} (${order.shippingAddress?.email || 'No email'})</p>
         <p style="margin:4px 0 0;font-size:14px;color:#94a3b8;">Phone: ${order.shippingAddress?.phone || 'N/A'}</p>
-        <p style="margin:4px 0 0;font-size:14px;color:#94a3b8;">Address: ${order.shippingAddress?.address || ''}, ${order.shippingAddress?.city || ''}, ${order.shippingAddress?.country || ''}</p>
+        <p style="margin:4px 0 0;font-size:14px;color:#94a3b8;">Address: ${order.shippingAddress?.address1 || ''}${order.shippingAddress?.address2 ? `, ${order.shippingAddress.address2}` : ''}, ${order.shippingAddress?.city || ''}, ${order.shippingAddress?.state || ''} ${order.shippingAddress?.zip || ''}, ${order.shippingAddress?.country || ''}</p>
       </div>
 
       <table style="width:100%;border-collapse:collapse;margin:16px 0;">

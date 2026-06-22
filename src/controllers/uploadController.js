@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const cloudinary = require('cloudinary').v2;
+const fs = require('fs');
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -33,6 +34,13 @@ const uploadImage = asyncHandler(async (req, res) => {
     console.error('Cloudinary upload error:', error);
     res.status(500);
     throw new Error('Image upload failed: ' + error.message);
+  } finally {
+    // Always clean up the local file after upload attempt
+    if (req.file?.path) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error('Failed to delete temp file:', err.message);
+      });
+    }
   }
 });
 
