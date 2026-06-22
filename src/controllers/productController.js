@@ -10,8 +10,10 @@ const getProducts = asyncHandler(async (req, res) => {
   const pageSize = Number(req.query.pageSize) || 10;
   const page = Number(req.query.page) || 1;
 
+  const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
   const keyword = req.query.keyword
-    ? { name: { $regex: req.query.keyword, $options: 'i' } }
+    ? { name: { $regex: escapeRegex(req.query.keyword), $options: 'i' } }
     : {};
 
   const filter = { isActive: true, ...keyword };

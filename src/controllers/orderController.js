@@ -255,10 +255,36 @@ const cancelOrder = asyncHandler(async (req, res) => {
 // @route   GET /api/orders
 // @access  Private/Admin
 const getAllOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find({})
+  const pageSize = Number(req.query.pageSize) || 20;
+  const page = Number(req.query.page) || 1;
+
+  const filter = {};
+  if (req.query.status && req.query.status !== 'all') {
+    filter.orderStatus = req.query.status;
+  }
+  if (req.query.search) {
+    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const s = escapeRegex(req.query.search);
+    filter.$or = [
+      { orderNumber: { $regex: s, $options: 'i' } },
+      { 'shippingAddress.fullName': { $regex: s, $options: 'i' } },
+      { 'shippingAddress.phone': { $regex: s, $options: 'i' } },
+    ];
+  }
+
+  const total = await Order.countDocuments(filter);
+  const orders = await Order.find(filter)
     .populate('customer', 'name')
-    .sort('-createdAt');
-  res.json(orders);
+    .sort('-createdAt')
+    .skip(pageSize * (page - 1))
+    .limit(pageSize);
+
+  res.json({
+    orders,
+    page,
+    pages: Math.ceil(total / pageSize),
+    total,
+  });
 });
 
 // @desc    Update order status
