@@ -90,12 +90,8 @@ const placeOrder = asyncHandler(async (req, res) => {
     }
   }
 
-  // Use server-side shipping cost from Settings
-  const settings = await Settings.findOne();
-  const freeShippingAbove = settings?.freeShippingAbove || 0;
-  const configuredShippingCost = settings?.shippingCost || 0;
-  const afterDiscount = serverSubtotal - validatedDiscount;
-  const serverShippingCost = (freeShippingAbove > 0 && afterDiscount >= freeShippingAbove) ? 0 : configuredShippingCost;
+  // Shipping is always free
+  const serverShippingCost = 0;
 
   const order = new Order({
     customer: req.user?._id || undefined,
