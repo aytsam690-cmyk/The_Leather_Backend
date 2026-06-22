@@ -6,6 +6,7 @@ const path = require('path');
 const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
 const cookieParser = require('cookie-parser');
+const compression = require('compression');
 
 // Load env vars
 dotenv.config();
@@ -62,6 +63,9 @@ app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // Cookie parser for refresh tokens
 app.use(cookieParser());
+
+// Gzip compression — reduces response size by ~70%
+app.use(compression());
 
 // Security: NoSQL injection prevention (body only — Express 5 has read-only req.query)
 app.use((req, res, next) => {
