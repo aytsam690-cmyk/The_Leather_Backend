@@ -23,7 +23,8 @@ const settingsSchema = new mongoose.Schema({
   metaTags: {
     title: { type: String },
     description: { type: String },
-    keywords: { type: String }
+    keywords: { type: String },
+    ogImage: { type: String }
   },
   promoBanner: {
     enabled:    { type: Boolean, default: true },
