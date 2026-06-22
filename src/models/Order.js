@@ -66,8 +66,9 @@ const orderSchema = new mongoose.Schema({
 
 orderSchema.pre('validate', function() {
   if (!this.orderNumber) {
-    const timestamp = Date.now().toString().slice(-6);
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const crypto = require('crypto');
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = crypto.randomBytes(4).toString('hex').toUpperCase();
     this.orderNumber = `ORD-${timestamp}-${random}`;
   }
 });

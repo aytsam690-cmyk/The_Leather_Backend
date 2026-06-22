@@ -148,12 +148,36 @@ const getOrderDetails = asyncHandler(async (req, res) => {
     throw new Error('Order not found');
   }
 
-  if (order.customer._id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-    res.status(401);
-    throw new Error('Not authorized to view this order');
+  // Admin can view any order
+  if (req.user && req.user.role === 'admin') {
+    return res.json(order);
   }
 
-  res.json(order);
+  // Logged-in user — must own the order
+  if (order.customer && req.user && order.customer._id.toString() === req.user._id.toString()) {
+    return res.json(order);
+  }
+
+  // Guest order — must verify with phone number
+  if (!order.customer) {
+    const phone = (req.query.phone || '').replace(/\s+/g, '');
+    const orderPhone = (order.shippingAddress?.phone || '').replace(/\s+/g, '');
+
+    if (!phone) {
+      res.status(400);
+      throw new Error('Phone number is required to view guest orders');
+    }
+
+    if (phone === orderPhone) {
+      return res.json(order);
+    }
+
+    res.status(403);
+    throw new Error('Phone number does not match this order');
+  }
+
+  res.status(403);
+  throw new Error('Not authorized to view this order');
 });
 
 // @desc    Cancel order (Customer)
