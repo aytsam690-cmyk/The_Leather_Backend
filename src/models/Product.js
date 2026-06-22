@@ -52,5 +52,11 @@ productSchema.index({
   tags: 'text'
 });
 
+// Performance indexes for common queries
+productSchema.index({ isActive: 1, category: 1 });
+productSchema.index({ isActive: 1, isFeatured: 1 });
+productSchema.index({ isActive: 1, price: 1 });
+productSchema.index({ slug: 1 });
+
 const Product = mongoose.model('Product', productSchema);
 module.exports = Product;

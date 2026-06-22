@@ -73,5 +73,11 @@ orderSchema.pre('validate', function() {
   }
 });
 
+// Performance indexes for common queries
+orderSchema.index({ orderStatus: 1, createdAt: -1 });
+orderSchema.index({ customer: 1, createdAt: -1 });
+orderSchema.index({ orderNumber: 1 });
+orderSchema.index({ 'shippingAddress.phone': 1 });
+
 const Order = mongoose.model('Order', orderSchema);
 module.exports = Order;
