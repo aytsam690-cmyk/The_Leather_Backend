@@ -9,13 +9,15 @@ const {
   deleteBanner,
   reorderBanners
 } = require('../controllers/bannerController');
+const { memCache, invalidateCache } = require('../middleware/cache');
 
-router.get('/', getBanners);
+router.get('/', memCache('banners'), getBanners);
 
-// Admin Routes
-router.post('/', protect, admin, createBanner);
-router.post('/reorder', protect, admin, reorderBanners);
-router.put('/:id', protect, admin, updateBanner);
-router.delete('/:id', protect, admin, deleteBanner);
+// Admin Routes — invalidate cache on changes
+const bust = (req, res, next) => { invalidateCache('banners'); next(); };
+router.post('/', protect, admin, bust, createBanner);
+router.post('/reorder', protect, admin, bust, reorderBanners);
+router.put('/:id', protect, admin, bust, updateBanner);
+router.delete('/:id', protect, admin, bust, deleteBanner);
 
 module.exports = router;

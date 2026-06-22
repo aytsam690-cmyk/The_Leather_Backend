@@ -9,13 +9,15 @@ const {
   updateCategory,
   deleteCategory
 } = require('../controllers/categoryController');
+const { memCache, invalidateCache } = require('../middleware/cache');
 
-router.get('/', getCategories);
+router.get('/', memCache('categories'), getCategories);
 router.get('/:slug', getCategoryBySlug);
 
-// Admin Routes
-router.post('/', protect, admin, createCategory);
-router.put('/:id', protect, admin, updateCategory);
-router.delete('/:id', protect, admin, deleteCategory);
+// Admin Routes — invalidate cache on changes
+const bust = (req, res, next) => { invalidateCache('categories'); next(); };
+router.post('/', protect, admin, bust, createCategory);
+router.put('/:id', protect, admin, bust, updateCategory);
+router.delete('/:id', protect, admin, bust, deleteCategory);
 
 module.exports = router;

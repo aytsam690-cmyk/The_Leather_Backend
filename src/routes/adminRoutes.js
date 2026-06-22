@@ -15,6 +15,7 @@ const {
   getSettings,
   updateSettings
 } = require('../controllers/adminController');
+const { invalidateCache } = require('../middleware/cache');
 
 router.use(protect, admin); // Apply to all admin routes
 
@@ -30,6 +31,6 @@ router.put('/customers/:id/status', updateCustomerStatus);
 router.delete('/customers/:id', deleteCustomer);
 
 router.get('/settings', getSettings);
-router.put('/settings', updateSettings);
+router.put('/settings', (req, res, next) => { invalidateCache('settings'); next(); }, updateSettings);
 
 module.exports = router;
