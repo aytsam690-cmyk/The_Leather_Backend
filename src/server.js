@@ -134,6 +134,65 @@ app.get('/sitemap.xml', async (req, res) => {
   }
 });
 
+// ─── Social Share OG Endpoint ─────────────────────────────────────────────────
+// Returns HTML with proper meta tags for WhatsApp/Facebook/Twitter crawlers
+app.get('/share/product/:slug', async (req, res) => {
+  try {
+    const Product = require('./models/Product');
+    const Settings = require('./models/Settings');
+
+    const product = await Product.findOne({ slug: req.params.slug, isActive: { $ne: false } }).lean();
+    const settings = await Settings.findOne({}).lean();
+
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim();
+    const siteName = settings?.siteName || 'CRAFT HID';
+    const productUrl = `${frontendUrl}/products/${req.params.slug}`;
+
+    if (!product) {
+      return res.redirect(productUrl);
+    }
+
+    const title = `${product.name} | ${siteName}`;
+    const description = (product.description || `Buy ${product.name} at ${siteName}`).slice(0, 155);
+    const image = product.images?.[0] || settings?.logo || '';
+    const price = product.salePrice || product.price || 0;
+    const currency = settings?.currency || 'PKR';
+
+    const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${esc(title)}</title>
+  <meta name="description" content="${esc(description)}" />
+  <meta property="og:title" content="${esc(title)}" />
+  <meta property="og:description" content="${esc(description)}" />
+  <meta property="og:image" content="${esc(image)}" />
+  <meta property="og:url" content="${esc(productUrl)}" />
+  <meta property="og:type" content="product" />
+  <meta property="og:site_name" content="${esc(siteName)}" />
+  <meta property="product:price:amount" content="${price}" />
+  <meta property="product:price:currency" content="${currency}" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${esc(title)}" />
+  <meta name="twitter:description" content="${esc(description)}" />
+  <meta name="twitter:image" content="${esc(image)}" />
+  <meta http-equiv="refresh" content="0;url=${esc(productUrl)}" />
+</head>
+<body>
+  <p>Redirecting to <a href="${esc(productUrl)}">${esc(product.name)}</a>...</p>
+</body>
+</html>`;
+
+    res.set('Content-Type', 'text/html');
+    res.send(html);
+  } catch (err) {
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim();
+    res.redirect(`${frontendUrl}/products/${req.params.slug}`);
+  }
+});
+
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 // Route imports
