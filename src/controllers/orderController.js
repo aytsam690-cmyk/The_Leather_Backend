@@ -13,10 +13,14 @@ const { ensureString } = require('../utils/sanitize');
 const placeOrder = asyncHandler(async (req, res) => {
   const { items, shippingAddress, paymentMethod, subtotal, shippingCost, discount, total, notes, couponCode } = req.body;
 
-  if (items && items.length === 0) {
+  if (!items || items.length === 0) {
     res.status(400);
     throw new Error('No order items');
   }
+
+  // Validate items and use server-side prices
+  const validatedItems = [];
+  let serverSubtotal = 0;
 
   for (let item of items) {
     const product = await Product.findById(item.product);
@@ -30,6 +34,16 @@ const placeOrder = asyncHandler(async (req, res) => {
     }
     product.stock -= item.quantity;
     await product.save();
+
+    // Use the real price from DB, not the client-sent price
+    const serverPrice = product.price;
+    validatedItems.push({
+      product: item.product,
+      quantity: item.quantity,
+      price: serverPrice,
+      name: product.name,
+    });
+    serverSubtotal += serverPrice * item.quantity;
 
     // Low stock alert
     if (product.lowStockAlert && product.stock < product.lowStockAlert) {
@@ -54,16 +68,16 @@ const placeOrder = asyncHandler(async (req, res) => {
         const isValid = now >= coupon.validFrom && now <= coupon.validUntil;
         const withinUsageLimit = !coupon.usageLimit || coupon.usedCount < coupon.usageLimit;
         const notUsedByUser = !req.user?._id || !coupon.usedBy.some(id => id.toString() === req.user._id.toString());
-        const meetsMinOrder = subtotal >= coupon.minOrderAmount;
+        const meetsMinOrder = serverSubtotal >= coupon.minOrderAmount;
 
         if (isValid && withinUsageLimit && notUsedByUser && meetsMinOrder) {
           if (coupon.type === 'percentage') {
-            validatedDiscount = (subtotal * coupon.value) / 100;
+            validatedDiscount = (serverSubtotal * coupon.value) / 100;
             if (coupon.maxDiscount && validatedDiscount > coupon.maxDiscount) {
               validatedDiscount = coupon.maxDiscount;
             }
           } else {
-            validatedDiscount = Math.min(coupon.value, subtotal);
+            validatedDiscount = Math.min(coupon.value, serverSubtotal);
           }
           // Update coupon usage
           coupon.usedCount += 1;
@@ -76,17 +90,24 @@ const placeOrder = asyncHandler(async (req, res) => {
     }
   }
 
+  // Use server-side shipping cost from Settings
+  const settings = await Settings.findOne();
+  const freeShippingAbove = settings?.freeShippingAbove || 0;
+  const configuredShippingCost = settings?.shippingCost || 0;
+  const afterDiscount = serverSubtotal - validatedDiscount;
+  const serverShippingCost = (freeShippingAbove > 0 && afterDiscount >= freeShippingAbove) ? 0 : configuredShippingCost;
+
   const order = new Order({
     customer: req.user?._id || undefined,
     isGuest: !req.user,
-    items,
+    items: validatedItems,
     shippingAddress,
     paymentMethod: paymentMethod || 'Cash on Delivery',
-    subtotal,
-    shippingCost,
+    subtotal: serverSubtotal,
+    shippingCost: serverShippingCost,
     discount: validatedDiscount,
     couponCode: couponCode || undefined,
-    total: subtotal - validatedDiscount + shippingCost,
+    total: serverSubtotal - validatedDiscount + serverShippingCost,
     notes,
     statusHistory: [{ status: 'pending', note: 'Order placed successfully' }]
   });

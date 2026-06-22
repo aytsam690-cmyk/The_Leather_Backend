@@ -246,7 +246,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 // @route   GET /api/auth/me
 // @access  Private
 const getUserProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
+  const user = await User.findById(req.user._id).select('-password -refreshToken');
   if (user) {
     res.json(user);
   } else {
