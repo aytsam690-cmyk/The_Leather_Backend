@@ -153,8 +153,9 @@ app.get('/share/product/:slug', async (req, res) => {
     }
 
     const title = `${product.name} | ${siteName}`;
-    const description = (product.description || `Buy ${product.name} at ${siteName}`).slice(0, 155);
-    const image = product.images?.[0] || settings?.logo || '';
+    const rawDesc = (product.description || `Buy ${product.name} at ${siteName}`).replace(/\n/g, ' ').slice(0, 155);
+    const description = rawDesc;
+    const image = (product.images?.[0]?.url) || (typeof product.images?.[0] === 'string' ? product.images[0] : '') || settings?.logo || '';
     const price = product.salePrice || product.price || 0;
     const currency = settings?.currency || 'PKR';
 
