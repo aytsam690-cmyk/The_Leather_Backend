@@ -23,17 +23,23 @@ const placeOrder = asyncHandler(async (req, res) => {
   let serverSubtotal = 0;
 
   for (let item of items) {
-    const product = await Product.findById(item.product);
+    // Atomic stock deduction — prevents overselling under concurrent load
+    const product = await Product.findOneAndUpdate(
+      { _id: item.product, stock: { $gte: item.quantity } },
+      { $inc: { stock: -item.quantity } },
+      { new: true }
+    );
+
     if (!product) {
-      res.status(404);
-      throw new Error(`Product not found: ${item.product}`);
-    }
-    if (product.stock < item.quantity) {
+      // Check if product exists at all or just out of stock
+      const exists = await Product.findById(item.product);
+      if (!exists) {
+        res.status(404);
+        throw new Error(`Product not found: ${item.product}`);
+      }
       res.status(400);
-      throw new Error(`Insufficient stock for product: ${product.name}`);
+      throw new Error(`Insufficient stock for product: ${exists.name}`);
     }
-    product.stock -= item.quantity;
-    await product.save();
 
     // Use the real price from DB, not the client-sent price
     const serverPrice = product.price;
