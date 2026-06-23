@@ -34,6 +34,9 @@ const productSchema = new mongoose.Schema({
   tags: [{ type: String }],
   isFeatured: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
+  metaTitle: { type: String },
+  metaDescription: { type: String },
+  metaKeywords: { type: String },
   ratings: {
     average: { type: Number, default: 0 },
     count: { type: Number, default: 0 }

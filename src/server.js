@@ -152,8 +152,8 @@ app.get('/share/product/:slug', async (req, res) => {
       return res.redirect(productUrl);
     }
 
-    const title = `${product.name} | ${siteName}`;
-    const rawDesc = (product.description || `Buy ${product.name} at ${siteName}`).replace(/\n/g, ' ').slice(0, 155);
+    const title = `${product.metaTitle || product.name} | ${siteName}`;
+    const rawDesc = (product.metaDescription || product.description || `Buy ${product.name} at ${siteName}`).replace(/\n/g, ' ').slice(0, 155);
     const description = rawDesc;
     const image = (product.images?.[0]?.url) || (typeof product.images?.[0] === 'string' ? product.images[0] : '') || settings?.logo || '';
     const price = product.salePrice || product.price || 0;
