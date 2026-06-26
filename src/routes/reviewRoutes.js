@@ -3,9 +3,16 @@ const router = express.Router();
 const reviewController = require('../controllers/reviewController');
 const { protect } = require('../middleware/auth');
 const { admin } = require('../middleware/admin');
+const rateLimit = require('express-rate-limit');
+
+const reviewLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { message: 'Too many reviews submitted. Please try again later.' }
+});
 
 // Guest review (no auth)
-router.post('/guest/:productId', reviewController.createGuestReview);
+router.post('/guest/:productId', reviewLimiter, reviewController.createGuestReview);
 
 // Admin create review
 router.post('/admin', protect, admin, reviewController.adminCreateReview);

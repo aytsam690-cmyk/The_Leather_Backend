@@ -396,11 +396,11 @@ const trackOrdersByPhone = asyncHandler(async (req, res) => {
     throw new Error('No orders found for this phone number.');
   }
 
-  res.json(orders.map(formatOrderForTracking));
+  res.json(orders.map(order => formatOrderForTracking(order, true)));
 });
 
 // Helper to format order for tracking response
-function formatOrderForTracking(order) {
+function formatOrderForTracking(order, isPublicPhoneTrack = false) {
   return {
     orderNumber: order.orderNumber,
     orderStatus: order.orderStatus,
@@ -414,8 +414,8 @@ function formatOrderForTracking(order) {
       color: i.variant?.color,
     })),
     shippingAddress: {
-      fullName: order.shippingAddress?.fullName,
-      phone: order.shippingAddress?.phone,
+      fullName: isPublicPhoneTrack ? '***' : order.shippingAddress?.fullName,
+      phone: isPublicPhoneTrack ? '***' : order.shippingAddress?.phone,
       city: order.shippingAddress?.city,
       country: order.shippingAddress?.country,
     },

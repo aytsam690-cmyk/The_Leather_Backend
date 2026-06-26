@@ -55,7 +55,7 @@ router.post('/login', authLimiter, loginValidation, validateRequest, loginUser);
 router.post('/admin-login', adminLoginLimiter, adminLogin);
 router.post('/forgot-password', authLimiter, forgotPassword);
 router.post('/reset-password/:token', authLimiter, resetPassword);
-router.post('/refresh-token', refreshAccessToken);
+router.post('/refresh-token', authLimiter, refreshAccessToken);
 
 // Protected routes
 router.post('/logout', protect, logoutUser);

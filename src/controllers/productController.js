@@ -104,9 +104,10 @@ const getFeaturedProducts = asyncHandler(async (req, res) => {
 // @access  Public
 const searchProducts = asyncHandler(async (req, res) => {
   const q = req.query.q || '';
+  const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const products = await Product.find({
     isActive: true,
-    name: { $regex: q, $options: 'i' }
+    name: { $regex: escapeRegex(typeof q === 'string' ? q : ''), $options: 'i' }
   }).limit(10);
   res.json(products);
 });

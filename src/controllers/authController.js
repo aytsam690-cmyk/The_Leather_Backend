@@ -325,9 +325,11 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
   const user = await User.findOne({ email: safeEmail });
 
+  const genericMessage = `If an account exists for ${safeEmail}, a password reset email has been sent.`;
+
   if (!user) {
-    res.status(404);
-    throw new Error('User not found');
+    // Prevent user enumeration by simulating success
+    return res.json({ message: genericMessage });
   }
 
   // Generate reset token
@@ -340,7 +342,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
   try {
     await sendPasswordResetEmail(user.email, resetUrl);
-    res.json({ message: `Password reset email sent to ${email}` });
+    res.json({ message: genericMessage });
   } catch (err) {
     // If email sending fails, clear the reset token fields
     user.resetPasswordToken = undefined;

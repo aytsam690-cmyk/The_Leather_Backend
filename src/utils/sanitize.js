@@ -29,23 +29,23 @@ const stripOperators = (obj) => {
   return clean;
 };
 
+const hasOperatorKey = (obj) => {
+  if (typeof obj !== 'object' || obj === null) return false;
+  if (Array.isArray(obj)) return obj.some(hasOperatorKey);
+  for (const key of Object.keys(obj)) {
+    if (key.startsWith('$')) return true;
+    if (hasOperatorKey(obj[key])) return true;
+  }
+  return false;
+};
+
 /**
- * Express middleware: reject any request whose body contains
- * MongoDB operator keys at the top level.
+ * Express middleware: reject any request whose body, query, or params
+ * contains MongoDB operator keys at any depth.
  */
 const noInjection = (req, res, next) => {
-  if (req.body && typeof req.body === 'object') {
-    for (const key of Object.keys(req.body)) {
-      const val = req.body[key];
-      if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
-        // Check for operator keys inside nested objects
-        for (const nestedKey of Object.keys(val)) {
-          if (nestedKey.startsWith('$')) {
-            return res.status(400).json({ message: 'Invalid input detected' });
-          }
-        }
-      }
-    }
+  if (hasOperatorKey(req.body) || hasOperatorKey(req.query) || hasOperatorKey(req.params)) {
+    return res.status(400).json({ message: 'Invalid input detected' });
   }
   next();
 };

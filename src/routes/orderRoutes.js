@@ -14,13 +14,26 @@ const {
   trackOrdersByPhone,
   deleteOrder
 } = require('../controllers/orderController');
+const rateLimit = require('express-rate-limit');
+
+const trackLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { message: 'Too many tracking requests. Try again later.' }
+});
+
+const orderLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: { message: 'Too many orders placed. Please try again later.' }
+});
 
 // Public Routes
-router.get('/track/:orderNumber', trackOrder);
-router.get('/track-by-phone/:phone', trackOrdersByPhone);
+router.get('/track/:orderNumber', trackLimiter, trackOrder);
+router.get('/track-by-phone/:phone', trackLimiter, trackOrdersByPhone);
 
 // Customer Routes
-router.post('/place', optionalProtect, placeOrder);
+router.post('/place', optionalProtect, orderLimiter, placeOrder);
 router.get('/my-orders', protect, getMyOrders);
 router.get('/:orderNumber', optionalProtect, getOrderDetails);
 router.put('/:id/cancel', protect, cancelOrder);
