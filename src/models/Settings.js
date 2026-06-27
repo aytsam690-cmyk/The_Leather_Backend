@@ -8,6 +8,7 @@ const socialLinkSchema = new mongoose.Schema({
 const settingsSchema = new mongoose.Schema({
   siteName: { type: String, required: true, default: 'My Ecommerce Store' },
   logo: { type: String },
+  favicon: { type: String },
   currency: { type: String, default: 'USD' },
   shippingCost: { type: Number, default: 10 },
   freeShippingAbove: { type: Number, default: 100 },
