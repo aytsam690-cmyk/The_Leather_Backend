@@ -79,8 +79,11 @@ app.use((req, res, next) => {
 const { noInjection } = require('./utils/sanitize');
 app.use(noInjection);
 
-// Serve uploaded files as static
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+// Serve uploaded files as static (with 30-day Cache-Control/Expires headers)
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads'), {
+  maxAge: '30d',
+  immutable: true
+}));
 
 // Basic route
 app.get('/', (req, res) => {
