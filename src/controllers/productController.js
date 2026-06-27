@@ -44,7 +44,8 @@ const getProducts = asyncHandler(async (req, res) => {
     .populate('category', 'name slug')
     .sort(sortCriteria)
     .limit(pageSize)
-    .skip(pageSize * (page - 1));
+    .skip(pageSize * (page - 1))
+    .lean();
 
   res.json({ products, page, pages: Math.ceil(count / pageSize), total: count });
 });
@@ -62,7 +63,8 @@ const getProductBySlug = asyncHandler(async (req, res) => {
       path: 'reviews',
       match: { isApproved: true },
       populate: { path: 'user', select: 'name' }
-    });
+    })
+    .lean();
 
   if (!product && param.match(/^[0-9a-fA-F]{24}$/)) {
     product = await Product.findOne({ _id: param, isActive: true })
@@ -71,7 +73,8 @@ const getProductBySlug = asyncHandler(async (req, res) => {
         path: 'reviews',
         match: { isApproved: true },
         populate: { path: 'user', select: 'name' }
-      });
+      })
+      .lean();
   }
 
   if (!product) {
@@ -82,7 +85,7 @@ const getProductBySlug = asyncHandler(async (req, res) => {
   // Fetch related products
   const relatedFilter = { _id: { $ne: product._id }, isActive: true };
   if (product.category) relatedFilter.category = product.category._id || product.category;
-  const relatedProducts = await Product.find(relatedFilter).limit(4);
+  const relatedProducts = await Product.find(relatedFilter).limit(4).lean();
 
   res.json({ product, relatedProducts });
 });
@@ -91,10 +94,10 @@ const getProductBySlug = asyncHandler(async (req, res) => {
 // @route   GET /api/products/featured
 // @access  Public
 const getFeaturedProducts = asyncHandler(async (req, res) => {
-  let products = await Product.find({ isFeatured: true, isActive: true }).limit(8);
+  let products = await Product.find({ isFeatured: true, isActive: true }).limit(8).lean();
   // If no products are marked as featured, return the latest products instead
   if (products.length === 0) {
-    products = await Product.find({ isActive: true }).sort({ createdAt: -1 }).limit(8);
+    products = await Product.find({ isActive: true }).sort({ createdAt: -1 }).limit(8).lean();
   }
   res.json(products);
 });
@@ -108,7 +111,7 @@ const searchProducts = asyncHandler(async (req, res) => {
   const products = await Product.find({
     isActive: true,
     name: { $regex: escapeRegex(typeof q === 'string' ? q : ''), $options: 'i' }
-  }).limit(10);
+  }).limit(10).lean();
   res.json(products);
 });
 

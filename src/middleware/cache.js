@@ -19,6 +19,26 @@ const memCache = (key, ttlMs = 5 * 60 * 1000) => {
   };
 };
 
+// Dynamic cache — builds key from prefix + query string (for paginated/filtered routes)
+const dynamicMemCache = (prefix, ttlMs = 2 * 60 * 1000) => {
+  return (req, res, next) => {
+    const queryStr = new URLSearchParams(req.query).toString();
+    const key = `${prefix}:${queryStr || 'default'}`;
+
+    const cached = cache.get(key);
+    if (cached && Date.now() - cached.timestamp < ttlMs) {
+      return res.json(cached.data);
+    }
+
+    const originalJson = res.json.bind(res);
+    res.json = (data) => {
+      cache.set(key, { data, timestamp: Date.now() });
+      return originalJson(data);
+    };
+    next();
+  };
+};
+
 const invalidateCache = (...keys) => {
   if (keys.length === 0) {
     cache.clear();
@@ -27,4 +47,13 @@ const invalidateCache = (...keys) => {
   }
 };
 
-module.exports = { memCache, invalidateCache };
+// Invalidate all keys that start with a given prefix
+const invalidateByPrefix = (...prefixes) => {
+  for (const [key] of cache) {
+    if (prefixes.some(p => key.startsWith(p))) {
+      cache.delete(key);
+    }
+  }
+};
+
+module.exports = { memCache, dynamicMemCache, invalidateCache, invalidateByPrefix };

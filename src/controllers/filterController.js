@@ -12,7 +12,7 @@ const getFilters = asyncHandler(async (req, res) => {
     if (mongoose.isValidObjectId(category)) {
       matchStage.category = new mongoose.Types.ObjectId(category);
     } else {
-      const cat = await Category.findOne({ name: category });
+      const cat = await Category.findOne({ name: category }).lean();
       if (cat) {
         matchStage.category = cat._id;
       } else {
