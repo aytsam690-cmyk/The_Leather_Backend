@@ -1,96 +1,59 @@
-const { createClient } = require('redis');
+// Simple in-memory cache with TTL
+// Used for rarely-changing data: settings, categories, banners
+const cache = new Map();
 
-// Create Redis client (connects to local Redis server by default)
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://127.0.0.1:6379'
-});
-
-redisClient.on('error', (err) => console.log('Redis Client Error', err));
-redisClient.on('connect', () => console.log('Connected to Redis'));
-
-// Attempt connection but don't crash if Redis is down (it will just bypass cache)
-redisClient.connect().catch(console.error);
-
-// Static key cache (for /api/settings, /api/banners)
 const memCache = (key, ttlMs = 5 * 60 * 1000) => {
-  return async (req, res, next) => {
-    try {
-      if (!redisClient.isReady) return next();
-
-      const cached = await redisClient.get(key);
-      if (cached) {
-        return res.json(JSON.parse(cached));
-      }
-
-      // Override res.json to capture and cache the response
-      const originalJson = res.json.bind(res);
-      res.json = (data) => {
-        redisClient.setEx(key, Math.floor(ttlMs / 1000), JSON.stringify(data)).catch(console.error);
-        return originalJson(data);
-      };
-      next();
-    } catch (err) {
-      console.error('Redis cache error:', err);
-      next();
+  return (req, res, next) => {
+    const cached = cache.get(key);
+    if (cached && Date.now() - cached.timestamp < ttlMs) {
+      return res.json(cached.data);
     }
+
+    // Override res.json to capture and cache the response
+    const originalJson = res.json.bind(res);
+    res.json = (data) => {
+      cache.set(key, { data, timestamp: Date.now() });
+      return originalJson(data);
+    };
+    next();
   };
 };
 
-// Dynamic key cache (for /api/products?page=1...)
+// Dynamic cache — builds key from prefix + query string (for paginated/filtered routes)
 const dynamicMemCache = (prefix, ttlMs = 2 * 60 * 1000) => {
-  return async (req, res, next) => {
-    try {
-      if (!redisClient.isReady) return next();
+  return (req, res, next) => {
+    const queryStr = new URLSearchParams(req.query).toString();
+    const key = `${prefix}:${queryStr || 'default'}`;
 
-      const queryStr = new URLSearchParams(req.query).toString();
-      const key = `${prefix}:${queryStr || 'default'}`;
-
-      const cached = await redisClient.get(key);
-      if (cached) {
-        return res.json(JSON.parse(cached));
-      }
-
-      const originalJson = res.json.bind(res);
-      res.json = (data) => {
-        redisClient.setEx(key, Math.floor(ttlMs / 1000), JSON.stringify(data)).catch(console.error);
-        return originalJson(data);
-      };
-      next();
-    } catch (err) {
-      console.error('Redis dynamic cache error:', err);
-      next();
+    const cached = cache.get(key);
+    if (cached && Date.now() - cached.timestamp < ttlMs) {
+      return res.json(cached.data);
     }
+
+    const originalJson = res.json.bind(res);
+    res.json = (data) => {
+      cache.set(key, { data, timestamp: Date.now() });
+      return originalJson(data);
+    };
+    next();
   };
 };
 
-// Invalidate exact keys
-const invalidateCache = async (...keys) => {
-  if (!redisClient.isReady) return;
-  try {
-    if (keys.length === 0) {
-      await redisClient.flushDb();
-    } else {
-      await redisClient.del(keys);
-    }
-  } catch (err) {
-    console.error('Redis invalidation error:', err);
+const invalidateCache = (...keys) => {
+  if (keys.length === 0) {
+    cache.clear();
+  } else {
+    keys.forEach(k => cache.delete(k));
   }
 };
 
-// Invalidate all keys that start with a prefix (e.g. "products:*")
-const invalidateByPrefix = async (...prefixes) => {
-  if (!redisClient.isReady) return;
-  try {
-    for (const prefix of prefixes) {
-      // Find all keys matching the prefix
-      const keys = await redisClient.keys(`${prefix}*`);
-      if (keys.length > 0) {
-        await redisClient.del(keys);
-      }
+// Invalidate all keys that start with a given prefix
+const invalidateByPrefix = (...prefixes) => {
+  for (const [key] of cache) {
+    if (prefixes.some(p => key.startsWith(p))) {
+      cache.delete(key);
     }
-  } catch (err) {
-    console.error('Redis prefix invalidation error:', err);
   }
 };
 
-module.exports = { memCache, dynamicMemCache, invalidateCache, invalidateByPrefix, redisClient };
+module.exports = { memCache, dynamicMemCache, invalidateCache, invalidateByPrefix };
