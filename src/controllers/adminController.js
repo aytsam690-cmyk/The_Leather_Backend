@@ -231,9 +231,12 @@ const getLowStockProducts = asyncHandler(async (req, res) => {
 const getTopSellingProducts = asyncHandler(async (req, res) => {
   const data = await Order.aggregate([
     { $unwind: '$items' },
-    { $group: { _id: '$items.product', totalSold: { $sum: '$items.quantity' }, name: { $first: '$items.name' } } },
+    { $group: { _id: '$items.product', totalSold: { $sum: '$items.quantity' } } },
     { $sort: { totalSold: -1 } },
-    { $limit: 5 }
+    { $limit: 5 },
+    { $lookup: { from: 'products', localField: '_id', foreignField: '_id', as: 'productDetails' } },
+    { $unwind: { path: '$productDetails', preserveNullAndEmptyArrays: true } },
+    { $project: { _id: 1, totalSold: 1, name: { $ifNull: ['$productDetails.name', 'Deleted Product'] } } }
   ]);
   res.json(data);
 });
