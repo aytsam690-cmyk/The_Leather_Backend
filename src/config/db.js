@@ -10,6 +10,7 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
       serverSelectionTimeoutMS: 10000, // timeout after 10s
       socketTimeoutMS: 45000,
+      maxIdleTimeMS: 120000, // 2 minutes (prevents Azure VM from silently dropping idle connections)
     });
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
