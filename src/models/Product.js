@@ -31,6 +31,7 @@ const productSchema = new mongoose.Schema({
   lowStockAlert: { type: Number, default: 5 },
   images: [imageSchema],
   variants: [variantSchema],
+  specs: { type: mongoose.Schema.Types.Mixed, default: {} },
   tags: [{ type: String }],
   isFeatured: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
