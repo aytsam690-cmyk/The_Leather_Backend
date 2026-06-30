@@ -231,7 +231,120 @@ app.use('/api/settings', settingsRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+// ─── INDUSTRY-LEVEL DYNAMIC RENDERING FOR BOTS (SEO) ─────────────────────────
+app.get(/^\/bot-render\/(.*)/, async (req, res) => {
+  try {
+    const Settings = require('./models/Settings');
+    const Product = require('./models/Product');
+    const settings = await Settings.findOne({}).lean();
+    
+    const siteName = settings?.siteName || 'Craft Hid';
+    const frontendUrl = (process.env.FRONTEND_URL || 'https://www.crafthid.com').split(',')[0].trim();
+    const fullPath = req.params[0] || '';
+    const canonicalUrl = `${frontendUrl}/${fullPath}`;
+    
+    let title = siteName;
+    let description = settings?.metaTags?.description || `Welcome to ${siteName}`;
+    let image = settings?.metaTags?.ogImage || settings?.logo || '';
+    let contentHtml = `<h1>${siteName}</h1><p>${description}</p>`;
+    let jsonLd = null;
+    let statusCode = 200;
+
+    // Route: Product Page
+    if (fullPath.startsWith('products/')) {
+      const slug = fullPath.split('/')[1];
+      if (slug) {
+        const product = await Product.findOne({ $or: [{ slug }, { _id: slug.length === 24 ? slug : null }] }).lean();
+        if (product) {
+          title = `${product.name} | ${siteName}`;
+          description = product.description || description;
+          image = (product.images && product.images.length > 0) ? product.images[0].url : image;
+          
+          contentHtml = `
+            <h1>${product.name}</h1>
+            ${image ? `<img src="${image}" alt="${product.name}" />` : ''}
+            <p>${product.description}</p>
+            <p><strong>Price:</strong> Rs. ${product.price}</p>
+          `;
+
+          // Generate Google Rich Results Structured Data
+          jsonLd = {
+            "@context": "https://schema.org/",
+            "@type": "Product",
+            "name": product.name,
+            "image": product.images?.map(img => img.url) || [image],
+            "description": product.description,
+            "sku": product._id.toString(),
+            "brand": {
+              "@type": "Brand",
+              "name": siteName
+            },
+            "offers": {
+              "@type": "Offer",
+              "url": canonicalUrl,
+              "priceCurrency": "PKR",
+              "price": product.price,
+              "availability": product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
+            }
+          };
+        } else {
+          // IMPORTANT: Return 404 if product is not in database. Prevents Soft 404 penalties.
+          statusCode = 404;
+          title = `Product Not Found | ${siteName}`;
+          contentHtml = `<h1>404 - Product Not Found</h1><p>The product you are looking for does not exist.</p>`;
+        }
+      }
+    } 
+    // Route: About Page
+    else if (fullPath.startsWith('about')) {
+      title = `About Us | ${siteName}`;
+      contentHtml = `<h1>About Us</h1><p>Learn more about ${siteName}</p>`;
+    }
+
+    // Escape basic HTML for meta content attributes
+    const escapeHtml = (unsafe) => (unsafe || '').toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+
+    const faviconTag = settings?.favicon ? `<link rel="icon" href="${settings.favicon}">` : `<link rel="icon" type="image/png" href="/favicon.png">`;
+    const jsonLdScript = jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : '';
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}">
+    <link rel="canonical" href="${canonicalUrl}" />
+    ${faviconTag}
+    
+    <!-- OpenGraph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="${canonicalUrl}">
+    <meta property="og:title" content="${escapeHtml(title)}">
+    <meta property="og:description" content="${escapeHtml(description)}">
+    <meta property="og:image" content="${image}">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="${canonicalUrl}">
+    <meta name="twitter:title" content="${escapeHtml(title)}">
+    <meta name="twitter:description" content="${escapeHtml(description)}">
+    <meta name="twitter:image" content="${image}">
+
+    ${jsonLdScript}
+</head>
+<body>
+    <div id="seo-content">
+      ${contentHtml}
+    </div>
+</body>
+</html>`;
+
+    res.status(statusCode).send(html);
+  } catch (error) {
+    console.error('Error rendering bot HTML:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
