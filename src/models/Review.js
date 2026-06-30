@@ -19,6 +19,11 @@ const reviewSchema = new mongoose.Schema({
     max: 5
   },
   comment: { type: String },
+  images: [{
+    url: String,
+    publicId: String
+  }],
+  isFeatured: { type: Boolean, default: false },
   isApproved: { type: Boolean, default: false }
 }, {
   timestamps: true
