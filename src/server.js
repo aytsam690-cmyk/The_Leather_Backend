@@ -346,5 +346,8 @@ app.get(/^\/bot-render\/(.*)/, async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
