@@ -27,7 +27,8 @@ const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use('/api', globalLimiter);
+// TEMPORARILY DISABLED FOR LOAD TESTING
+// app.use('/api', globalLimiter);
 
 // Security: HTTP headers with Content Security Policy
 app.use(helmet({
