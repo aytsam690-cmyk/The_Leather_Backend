@@ -227,10 +227,6 @@ app.use('/api/filters', filterRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/settings', settingsRoutes);
 
-// Error handling middlewares
-app.use(notFound);
-app.use(errorHandler);
-
 // ─── INDUSTRY-LEVEL DYNAMIC RENDERING FOR BOTS (SEO) ─────────────────────────
 app.get(/^\/bot-render\/(.*)/, async (req, res) => {
   try {
@@ -346,6 +342,10 @@ app.get(/^\/bot-render\/(.*)/, async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
+
+// Error handling middlewares
+app.use(notFound);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
