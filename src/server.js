@@ -124,9 +124,18 @@ app.get('/sitemap.xml', async (req, res) => {
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
 
     // Static pages
-    const staticPages = ['/', '/products', '/about', '/track-order'];
+    const staticPages = [
+      { path: '/',                  freq: 'daily',   priority: '1.0' },
+      { path: '/products',          freq: 'weekly',  priority: '0.8' },
+      { path: '/about',             freq: 'monthly', priority: '0.8' },
+      { path: '/track-order',       freq: 'weekly',  priority: '0.8' },
+      { path: '/contact',           freq: 'monthly', priority: '0.6' },
+      { path: '/privacy-policy',    freq: 'monthly', priority: '0.4' },
+      { path: '/return-policy',     freq: 'monthly', priority: '0.4' },
+      { path: '/terms-conditions',  freq: 'monthly', priority: '0.4' },
+    ];
     for (const page of staticPages) {
-      xml += `  <url>\n    <loc>${frontendUrl}${page}</loc>\n    <changefreq>${page === '/' ? 'daily' : 'weekly'}</changefreq>\n    <priority>${page === '/' ? '1.0' : '0.8'}</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${frontendUrl}${page.path}</loc>\n    <changefreq>${page.freq}</changefreq>\n    <priority>${page.priority}</priority>\n  </url>\n`;
     }
 
     // Product pages
