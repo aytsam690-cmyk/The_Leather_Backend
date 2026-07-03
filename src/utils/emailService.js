@@ -16,6 +16,9 @@ const CURRENCY_SYMBOLS = {
   AED: 'AED ', CAD: 'C$', AUD: 'A$', JPY: '¥', CNY: '¥',
 };
 
+// Always use www as the canonical frontend URL
+const SHOP_URL = 'https://www.crafthid.com';
+
 // Fetch brand + currency dynamically
 const getBrandInfo = async () => {
   let brand = 'ShopVerse';
@@ -101,7 +104,7 @@ const sendPasswordResetEmail = async (to, resetUrl) => {
 // ─── 2. Welcome / Registration ────────────────────────────────────────────────
 const sendWelcomeEmail = async (to, name) => {
   const { brand, senderName } = await getBrandInfo();
-  const shopUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const shopUrl = SHOP_URL;
   const html = wrap(
     header('🎉', `Welcome to ${brand}!`, brand) +
     body(`
@@ -123,7 +126,7 @@ const sendWelcomeEmail = async (to, name) => {
 // ─── 3. Order Confirmation ────────────────────────────────────────────────────
 const sendOrderConfirmationEmail = async (to, order) => {
   const { brand, senderName, cs } = await getBrandInfo();
-  const shopUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const shopUrl = SHOP_URL;
 
   const itemRows = (order.items || []).map(item => `
     <tr>
@@ -170,7 +173,7 @@ const sendOrderConfirmationEmail = async (to, order) => {
 // ─── 4. Order Status Update ───────────────────────────────────────────────────
 const sendOrderStatusEmail = async (to, order, newStatus) => {
   const { brand, senderName } = await getBrandInfo();
-  const shopUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const shopUrl = SHOP_URL;
 
   const statusConfig = {
     processing: { emoji: '🔄', title: 'Order Processing',  msg: "We're preparing your order. It will be shipped soon!" },

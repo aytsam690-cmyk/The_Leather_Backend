@@ -337,7 +337,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
   await user.save();
 
   // Build reset URL
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const frontendUrl = 'https://www.crafthid.com';
   const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
 
   try {
