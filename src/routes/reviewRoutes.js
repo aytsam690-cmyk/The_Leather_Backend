@@ -6,17 +6,14 @@ const { admin } = require('../middleware/admin');
 const { upload } = require('../middleware/uploadMiddleware');
 const rateLimit = require('express-rate-limit');
 
-const reviewLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
-  message: { message: 'Too many reviews submitted. Please try again later.' }
-});
+// TESTING: Rate limiter temporarily commented out for load testing
+// const reviewLimiter = rateLimit({...});
 
 // Featured reviews (public)
 router.get('/featured', reviewController.getFeaturedReviews);
 
 // Guest review (no auth)
-router.post('/guest/:productId', reviewLimiter, upload.array('images', 3), reviewController.createGuestReview);
+router.post('/guest/:productId', upload.array('images', 3), reviewController.createGuestReview);
 
 // Admin create review
 router.post('/admin', protect, admin, upload.array('images', 3), reviewController.adminCreateReview);
