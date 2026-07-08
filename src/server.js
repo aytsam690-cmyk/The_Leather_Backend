@@ -339,7 +339,7 @@ app.get(/^\/bot-render\/(.*)/, async (req, res) => {
     // Escape basic HTML for meta content attributes
     const escapeHtml = (unsafe) => (unsafe || '').toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 
-    const faviconTag = `<link rel="icon" type="image/png" href="/favicon.png">`;
+    const faviconTag = `<link rel="icon" type="image/png" href="/favicon.png?v=2">`;
     const jsonLdScript = jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : '';
 
     const html = `<!DOCTYPE html>
