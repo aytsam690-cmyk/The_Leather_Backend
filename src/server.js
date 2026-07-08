@@ -19,15 +19,15 @@ const app = express();
 // Security: Trust Proxy is REQUIRED for rate limiters to work behind Vercel/Cloudflare
 app.set('trust proxy', 1);
 
-// TESTING: Global rate limiter temporarily commented out for load testing
-// const rateLimit = require('express-rate-limit');
-// const globalLimiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, // 15 minutes
-//   max: 1000, // Limit each IP to 1000 requests per `window` (here, per 15 minutes)
-//   standardHeaders: true,
-//   legacyHeaders: false,
-// });
-// app.use('/api', globalLimiter);
+// Security: Global API Rate Limiter to prevent DDoS attacks
+const rateLimit = require('express-rate-limit');
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Limit each IP to 1000 requests per `window` (here, per 15 minutes)
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', globalLimiter);
 
 // Security: HTTP headers with Content Security Policy
 app.use(helmet({
@@ -313,10 +313,27 @@ app.get(/^\/bot-render\/(.*)/, async (req, res) => {
         }
       }
     } 
+    // Route: Products Listing
+    else if (fullPath === 'products') {
+      title = `All Products | ${siteName}`;
+      description = `Browse our extensive collection of premium products at ${siteName}.`;
+      contentHtml = `<h1>All Products</h1><p>${description}</p>`;
+    }
+    // Route: Categories
+    else if (fullPath === 'categories') {
+      title = `Categories | ${siteName}`;
+      description = `Shop by category and discover what you love at ${siteName}.`;
+      contentHtml = `<h1>Categories</h1><p>${description}</p>`;
+    }
     // Route: About Page
     else if (fullPath.startsWith('about')) {
       title = `About Us | ${siteName}`;
       contentHtml = `<h1>About Us</h1><p>Learn more about ${siteName}</p>`;
+    }
+    // Route: Contact
+    else if (fullPath.startsWith('contact')) {
+      title = `Contact Us | ${siteName}`;
+      contentHtml = `<h1>Contact Us</h1><p>Get in touch with ${siteName} customer support.</p>`;
     }
 
     // Escape basic HTML for meta content attributes
