@@ -110,7 +110,7 @@ app.get('/sitemap.xml', async (req, res) => {
     const Category = require('./models/Category');
     const Settings = require('./models/Settings');
 
-    const products = await Product.find({ isActive: { $ne: false } }).select('slug updatedAt').lean();
+    const products = await Product.find({ isActive: { $ne: false } }).select('slug updatedAt images name').lean();
     const categories = await Category.find({}).select('name').lean();
     const settings = await Settings.findOne({}).lean();
 
@@ -121,7 +121,7 @@ app.get('/sitemap.xml', async (req, res) => {
     const escXml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n';
 
     // Static pages
     const staticPages = [
@@ -134,15 +134,24 @@ app.get('/sitemap.xml', async (req, res) => {
       { path: '/return-policy',     freq: 'monthly', priority: '0.4' },
       { path: '/terms-conditions',  freq: 'monthly', priority: '0.4' },
     ];
+    const today = new Date().toISOString().split('T')[0];
     for (const page of staticPages) {
-      xml += `  <url>\n    <loc>${frontendUrl}${page.path}</loc>\n    <changefreq>${page.freq}</changefreq>\n    <priority>${page.priority}</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${frontendUrl}${page.path}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${page.freq}</changefreq>\n    <priority>${page.priority}</priority>\n  </url>\n`;
     }
 
     // Product pages
     for (const p of products) {
       const slug = p.slug || p._id;
-      const lastmod = p.updatedAt ? new Date(p.updatedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-      xml += `  <url>\n    <loc>${escXml(frontendUrl)}/products/${escXml(slug)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.9</priority>\n  </url>\n`;
+      const lastmod = p.updatedAt ? new Date(p.updatedAt).toISOString().split('T')[0] : today;
+      let imageXml = '';
+      if (p.images && p.images.length > 0) {
+        for (const img of p.images) {
+          if (img.url) {
+            imageXml += `\n    <image:image>\n      <image:loc>${escXml(img.url)}</image:loc>\n      <image:title>${escXml(p.name)}</image:title>\n    </image:image>`;
+          }
+        }
+      }
+      xml += `  <url>\n    <loc>${escXml(frontendUrl)}/products/${escXml(slug)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.9</priority>${imageXml}\n  </url>\n`;
     }
 
     // Category pages
@@ -272,7 +281,7 @@ app.get(/^\/bot-render\/(.*)/, async (req, res) => {
     if (fullPath.startsWith('products/')) {
       const slug = fullPath.split('/')[1];
       if (slug) {
-        const product = await Product.findOne({ $or: [{ slug }, { _id: slug.length === 24 ? slug : null }] }).lean();
+        const product = await Product.findOne({ $or: [{ slug }, { _id: slug.length === 24 ? slug : null }] }).select('name slug description images price stock ratings SKU').lean();
         if (product) {
           title = `${product.name} | ${siteName}`;
           description = product.description || description;
@@ -292,17 +301,28 @@ app.get(/^\/bot-render\/(.*)/, async (req, res) => {
             "name": product.name,
             "image": product.images?.map(img => img.url) || [image],
             "description": product.description,
-            "sku": product._id.toString(),
+            "sku": product.SKU || product._id.toString(),
             "brand": {
               "@type": "Brand",
               "name": siteName
             },
+            ...(product.ratings?.count > 0 ? {
+              "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": product.ratings.average,
+                "reviewCount": product.ratings.count
+              }
+            } : {}),
             "offers": {
               "@type": "Offer",
               "url": canonicalUrl,
               "priceCurrency": "PKR",
               "price": product.price,
-              "availability": product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
+              "availability": product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+              "seller": {
+                "@type": "Organization",
+                "name": siteName
+              }
             }
           };
         } else {
@@ -319,27 +339,60 @@ app.get(/^\/bot-render\/(.*)/, async (req, res) => {
       description = `Browse our extensive collection of premium products at ${siteName}.`;
       contentHtml = `<h1>All Products</h1><p>${description}</p>`;
     }
-    // Route: Categories
-    else if (fullPath === 'categories') {
-      title = `Categories | ${siteName}`;
-      description = `Shop by category and discover what you love at ${siteName}.`;
-      contentHtml = `<h1>Categories</h1><p>${description}</p>`;
+    // Route: Home Page
+    else if (fullPath === '') {
+      title = `${siteName} - Premium Products`;
+      description = settings?.metaTags?.description || `Discover premium products curated just for you at ${siteName}. Quality you can feel, style you can trust.`;
+      contentHtml = `<h1>${siteName}</h1><p>${description}</p>`;
+      jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": siteName,
+        "url": frontendUrl,
+        "description": `Discover premium products at ${siteName}.`
+      };
     }
     // Route: About Page
     else if (fullPath.startsWith('about')) {
       title = `About Us | ${siteName}`;
-      contentHtml = `<h1>About Us</h1><p>Learn more about ${siteName}</p>`;
+      description = `Learn about ${siteName} — our story, values, and commitment to bringing you premium products with exceptional quality.`;
+      contentHtml = `<h1>About Us</h1><p>${description}</p>`;
     }
     // Route: Contact
     else if (fullPath.startsWith('contact')) {
       title = `Contact Us | ${siteName}`;
-      contentHtml = `<h1>Contact Us</h1><p>Get in touch with ${siteName} customer support.</p>`;
+      description = `Get in touch with ${siteName}. We're here to help with your orders and inquiries.`;
+      contentHtml = `<h1>Contact Us</h1><p>${description}</p>`;
+    }
+    // Route: Track Order
+    else if (fullPath.startsWith('track-order')) {
+      title = `Track Order | ${siteName}`;
+      description = `Track your orders by entering your phone number.`;
+      contentHtml = `<h1>Track Order</h1><p>${description}</p>`;
+    }
+    // Route: Privacy Policy
+    else if (fullPath.startsWith('privacy-policy')) {
+      title = `Privacy Policy | ${siteName}`;
+      description = `Privacy Policy for ${siteName}. Learn how we collect, use, and protect your data.`;
+      contentHtml = `<h1>Privacy Policy</h1><p>${description}</p>`;
+    }
+    // Route: Terms Conditions
+    else if (fullPath.startsWith('terms-conditions')) {
+      title = `Terms & Conditions | ${siteName}`;
+      description = `Terms and Conditions for ${siteName}. Read the rules and guidelines for using our website and purchasing our products.`;
+      contentHtml = `<h1>Terms & Conditions</h1><p>${description}</p>`;
+    }
+    // Route: Return Policy
+    else if (fullPath.startsWith('return-policy')) {
+      title = `Return Policy | ${siteName}`;
+      description = `Return Policy for ${siteName}. Learn about our 7-day return process.`;
+      contentHtml = `<h1>Return Policy</h1><p>${description}</p>`;
     }
 
     // Escape basic HTML for meta content attributes
     const escapeHtml = (unsafe) => (unsafe || '').toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 
-    const faviconTag = `<link rel="icon" type="image/png" href="/favicon.png?v=2">`;
+    const faviconTag = `<link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png?v=3">\n    <link rel="icon" type="image/x-icon" href="/favicon.ico?v=3">`;
     const jsonLdScript = jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : '';
 
     const html = `<!DOCTYPE html>
