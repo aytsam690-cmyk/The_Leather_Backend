@@ -109,10 +109,16 @@ app.get('/sitemap.xml', async (req, res) => {
     const Product = require('./models/Product');
     const Category = require('./models/Category');
     const Settings = require('./models/Settings');
+    // BLOG FEATURE — PATCH 6 — SITEMAP & SEO
+    const BlogPost = require('./models/BlogPost');
+    const BlogCategory = require('./models/BlogCategory');
 
     const products = await Product.find({ isActive: { $ne: false } }).select('slug updatedAt images name').lean();
     const categories = await Category.find({}).select('name').lean();
     const settings = await Settings.findOne({}).lean();
+    // BLOG FEATURE — PATCH 6 — SITEMAP & SEO
+    const blogPosts = await BlogPost.find({ status: 'published' }).select('slug updatedAt').lean();
+    const blogCategories = await BlogCategory.find({}).select('slug').lean();
 
     // Use FRONTEND_URL as the site domain
     const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim();
@@ -159,12 +165,55 @@ app.get('/sitemap.xml', async (req, res) => {
       xml += `  <url>\n    <loc>${escXml(frontendUrl)}/products?category=${encodeURIComponent(c.name)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
     }
 
+    // BLOG FEATURE — PATCH 6 — SITEMAP & SEO
+    xml += `  <url>\n    <loc>${escXml(frontendUrl)}/blog</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
+    for (const bc of blogCategories) {
+      xml += `  <url>\n    <loc>${escXml(frontendUrl)}/blog?category=${escXml(bc.slug)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>\n`;
+    }
+    for (const bp of blogPosts) {
+      const lastmod = bp.updatedAt ? new Date(bp.updatedAt).toISOString().split('T')[0] : today;
+      xml += `  <url>\n    <loc>${escXml(frontendUrl)}/blog/${escXml(bp.slug)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+    }
+
     xml += '</urlset>';
 
     res.set('Content-Type', 'application/xml');
     res.send(xml);
   } catch (err) {
     res.status(500).send('Error generating sitemap');
+  }
+});
+
+// BLOG FEATURE — PATCH 6 — SITEMAP & SEO
+app.get('/blog-sitemap.xml', async (req, res) => {
+  try {
+    const BlogPost = require('./models/BlogPost');
+    const BlogCategory = require('./models/BlogCategory');
+
+    const blogPosts = await BlogPost.find({ status: 'published' }).select('slug updatedAt').lean();
+    const blogCategories = await BlogCategory.find({}).select('slug').lean();
+
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim();
+    const escXml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    const today = new Date().toISOString().split('T')[0];
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+
+    xml += `  <url>\n    <loc>${escXml(frontendUrl)}/blog</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
+    for (const bc of blogCategories) {
+      xml += `  <url>\n    <loc>${escXml(frontendUrl)}/blog?category=${escXml(bc.slug)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>\n`;
+    }
+    for (const bp of blogPosts) {
+      const lastmod = bp.updatedAt ? new Date(bp.updatedAt).toISOString().split('T')[0] : today;
+      xml += `  <url>\n    <loc>${escXml(frontendUrl)}/blog/${escXml(bp.slug)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+    }
+
+    xml += '</urlset>';
+    res.set('Content-Type', 'application/xml');
+    res.send(xml);
+  } catch (err) {
+    res.status(500).send('Error generating blog sitemap');
   }
 });
 
