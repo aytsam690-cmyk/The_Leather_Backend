@@ -110,8 +110,11 @@ app.get('/sitemap.xml', async (req, res) => {
     const Category = require('./models/Category');
     const Settings = require('./models/Settings');
 
+    const BlogPost = require('./models/BlogPost');
+
     const products = await Product.find({ isActive: { $ne: false } }).select('slug updatedAt images name').lean();
     const categories = await Category.find({}).select('name').lean();
+    const blogs = await BlogPost.find(BlogPost.publicFilter()).select('slug updatedAt publishedAt featuredImage title').lean();
     const settings = await Settings.findOne({}).lean();
 
     // Use FRONTEND_URL as the site domain
@@ -130,6 +133,7 @@ app.get('/sitemap.xml', async (req, res) => {
       { path: '/about',             freq: 'monthly', priority: '0.8' },
       { path: '/track-order',       freq: 'weekly',  priority: '0.8' },
       { path: '/contact',           freq: 'monthly', priority: '0.6' },
+      { path: '/blogs',             freq: 'weekly',  priority: '0.7' },
       { path: '/privacy-policy',    freq: 'monthly', priority: '0.4' },
       { path: '/return-policy',     freq: 'monthly', priority: '0.4' },
       { path: '/terms-conditions',  freq: 'monthly', priority: '0.4' },
@@ -159,12 +163,82 @@ app.get('/sitemap.xml', async (req, res) => {
       xml += `  <url>\n    <loc>${escXml(frontendUrl)}/products?category=${encodeURIComponent(c.name)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
     }
 
+    // Blog post pages (published/scheduled-past only, via publicFilter)
+    for (const b of blogs) {
+      const lastmodSrc = b.updatedAt || b.publishedAt;
+      const lastmod = lastmodSrc ? new Date(lastmodSrc).toISOString().split('T')[0] : today;
+      let imageXml = '';
+      if (b.featuredImage) {
+        imageXml += `\n    <image:image>\n      <image:loc>${escXml(b.featuredImage)}</image:loc>\n      <image:title>${escXml(b.title)}</image:title>\n    </image:image>`;
+      }
+      xml += `  <url>\n    <loc>${escXml(frontendUrl)}/blog/${escXml(b.slug)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.6</priority>${imageXml}\n  </url>\n`;
+    }
+
     xml += '</urlset>';
 
     res.set('Content-Type', 'application/xml');
     res.send(xml);
   } catch (err) {
     res.status(500).send('Error generating sitemap');
+  }
+});
+
+// ─── robots.txt (points crawlers at the sitemap) ─────────────────────────────
+app.get('/robots.txt', (req, res) => {
+  const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim();
+  const body = [
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /aytsam-abdullah',
+    `Sitemap: ${frontendUrl}/sitemap.xml`,
+    '',
+  ].join('\n');
+  res.set('Content-Type', 'text/plain');
+  res.send(body);
+});
+
+// ─── RSS 2.0 feed for the blog ───────────────────────────────────────────────
+app.get('/rss.xml', async (req, res) => {
+  try {
+    const BlogPost = require('./models/BlogPost');
+    const Settings = require('./models/Settings');
+
+    const settings = await Settings.findOne({}).lean();
+    const siteName = settings?.siteName || 'Store';
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim();
+
+    const posts = await BlogPost.find(BlogPost.publicFilter())
+      .select('title slug excerpt metaDescription publishedAt updatedAt')
+      .sort({ publishedAt: -1 })
+      .limit(50)
+      .lean();
+
+    const escXml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n<channel>\n';
+    xml += `  <title>${escXml(siteName)} — Blog</title>\n`;
+    xml += `  <link>${escXml(frontendUrl)}/blogs</link>\n`;
+    xml += `  <description>${escXml(`Latest articles from ${siteName}`)}</description>\n`;
+    xml += `  <atom:link href="${escXml(frontendUrl)}/rss.xml" rel="self" type="application/rss+xml" />\n`;
+    for (const p of posts) {
+      const link = `${frontendUrl}/blog/${p.slug}`;
+      const desc = p.excerpt || p.metaDescription || '';
+      const pubDate = p.publishedAt ? new Date(p.publishedAt).toUTCString() : new Date(p.updatedAt).toUTCString();
+      xml += '  <item>\n';
+      xml += `    <title>${escXml(p.title)}</title>\n`;
+      xml += `    <link>${escXml(link)}</link>\n`;
+      xml += `    <guid isPermaLink="true">${escXml(link)}</guid>\n`;
+      xml += `    <description>${escXml(desc)}</description>\n`;
+      xml += `    <pubDate>${pubDate}</pubDate>\n`;
+      xml += '  </item>\n';
+    }
+    xml += '</channel>\n</rss>';
+
+    res.set('Content-Type', 'application/rss+xml');
+    res.send(xml);
+  } catch (err) {
+    res.status(500).send('Error generating RSS feed');
   }
 });
 
@@ -243,6 +317,7 @@ const searchRoutes = require('./routes/searchRoutes');
 const filterRoutes = require('./routes/filterRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const blogRoutes = require('./routes/blogRoutes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -257,6 +332,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/filters', filterRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/blog', blogRoutes);
 
 // ─── INDUSTRY-LEVEL DYNAMIC RENDERING FOR BOTS (SEO) ─────────────────────────
 app.get(/^\/bot-render\/(.*)/, async (req, res) => {
