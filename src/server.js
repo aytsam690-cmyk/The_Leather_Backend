@@ -107,11 +107,9 @@ app.get('/', (req, res) => {
 app.get('/sitemap.xml', async (req, res) => {
   try {
     const Product = require('./models/Product');
-    const Category = require('./models/Category');
     const Settings = require('./models/Settings');
 
     const products = await Product.find({ isActive: { $ne: false } }).select('slug updatedAt images name').lean();
-    const categories = await Category.find({}).select('name').lean();
     const settings = await Settings.findOne({}).lean();
 
     // Use FRONTEND_URL as the site domain
@@ -154,10 +152,10 @@ app.get('/sitemap.xml', async (req, res) => {
       xml += `  <url>\n    <loc>${escXml(frontendUrl)}/products/${escXml(slug)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.9</priority>${imageXml}\n  </url>\n`;
     }
 
-    // Category pages
-    for (const c of categories) {
-      xml += `  <url>\n    <loc>${escXml(frontendUrl)}/products?category=${encodeURIComponent(c.name)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
-    }
+    // Note: Category filter URLs (/products?category=X) are intentionally excluded
+    // from the sitemap. The canonical for all filtered views is /products.
+    // Including ?category= URLs causes "Duplicate, Google chose different canonical"
+    // errors in Google Search Console.
 
     xml += '</urlset>';
 
@@ -267,8 +265,10 @@ app.get(/^\/bot-render\/(.*)/, async (req, res) => {
     
     const siteName = settings?.siteName || 'Craft Hid';
     const frontendUrl = (process.env.FRONTEND_URL || 'https://www.crafthid.com').split(',')[0].trim();
+    // Strip trailing slash from path to ensure consistent canonical URLs
     const fullPath = req.params[0] || '';
-    const canonicalUrl = `${frontendUrl}/${fullPath}`;
+    const cleanPath = fullPath.replace(/\/+$/, '');
+    const canonicalUrl = cleanPath ? `${frontendUrl}/${cleanPath}` : `${frontendUrl}/`;
     
     let title = siteName;
     let description = settings?.metaTags?.description || `Welcome to ${siteName}`;
