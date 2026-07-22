@@ -62,9 +62,11 @@ app.use(cors({
 }));
 
 // Security: Reject oversized requests before body parsing even starts
+// NOTE: Upload routes are exempt — they use multer's own per-file limit (5MB)
 app.use((req, res, next) => {
   const contentLength = parseInt(req.headers['content-length'], 10);
-  if (contentLength && contentLength > 2 * 1024 * 1024) { // 2MB hard limit
+  const isUploadRoute = req.path.startsWith('/upload') || req.path.startsWith('/api/upload');
+  if (!isUploadRoute && contentLength && contentLength > 2 * 1024 * 1024) { // 2MB hard limit for non-uploads
     return res.status(413).json({ message: 'Payload too large' });
   }
   next();
