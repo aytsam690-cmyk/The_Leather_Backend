@@ -35,6 +35,7 @@ const productSchema = new mongoose.Schema({
   tags: [{ type: String }],
   isFeatured: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
+  sortOrder: { type: Number, default: 0 },  // Manual display order: lower = appears first
   metaTitle: { type: String },
   metaDescription: { type: String },
   metaKeywords: { type: String },
@@ -61,6 +62,7 @@ productSchema.index({ isActive: 1, category: 1 });
 productSchema.index({ isActive: 1, isFeatured: 1 });
 productSchema.index({ isActive: 1, price: 1 });
 productSchema.index({ slug: 1 });
+productSchema.index({ sortOrder: 1 });
 
 const Product = mongoose.model('Product', productSchema);
 module.exports = Product;

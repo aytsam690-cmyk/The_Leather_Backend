@@ -32,11 +32,11 @@ const getProducts = asyncHandler(async (req, res) => {
 
   let sortCriteria = {};
   switch (req.query.sort) {
-    case 'price_asc': sortCriteria = { price: 1 }; break;
+    case 'price_asc':  sortCriteria = { price: 1 }; break;
     case 'price_desc': sortCriteria = { price: -1 }; break;
-    case 'popular': sortCriteria = { 'ratings.count': -1 }; break;
-    case 'newest': sortCriteria = { createdAt: -1 }; break;
-    default: sortCriteria = { createdAt: -1 };
+    case 'popular':    sortCriteria = { 'ratings.count': -1 }; break;
+    case 'newest':     sortCriteria = { createdAt: -1 }; break;
+    default:           sortCriteria = { sortOrder: 1, createdAt: -1 }; // Manual order first, then newest
   }
 
   const count = await Product.countDocuments(filter);
@@ -94,10 +94,10 @@ const getProductBySlug = asyncHandler(async (req, res) => {
 // @route   GET /api/products/featured
 // @access  Public
 const getFeaturedProducts = asyncHandler(async (req, res) => {
-  let products = await Product.find({ isFeatured: true, isActive: true }).limit(8).lean();
+  let products = await Product.find({ isFeatured: true, isActive: true }).sort({ sortOrder: 1, createdAt: -1 }).limit(8).lean();
   // If no products are marked as featured, return the latest products instead
   if (products.length === 0) {
-    products = await Product.find({ isActive: true }).sort({ createdAt: -1 }).limit(8).lean();
+    products = await Product.find({ isActive: true }).sort({ sortOrder: 1, createdAt: -1 }).limit(8).lean();
   }
   res.json(products);
 });
