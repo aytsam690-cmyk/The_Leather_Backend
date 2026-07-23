@@ -243,6 +243,7 @@ const searchRoutes = require('./routes/searchRoutes');
 const filterRoutes = require('./routes/filterRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const expenseRoutes = require('./routes/expenseRoutes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -257,6 +258,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/filters', filterRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/expenses', expenseRoutes);
 
 // ─── INDUSTRY-LEVEL DYNAMIC RENDERING FOR BOTS (SEO) ─────────────────────────
 app.get(/^\/bot-render\/(.*)/, async (req, res) => {
