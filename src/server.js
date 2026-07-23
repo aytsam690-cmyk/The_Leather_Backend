@@ -283,7 +283,15 @@ app.get(/^\/bot-render\/(.*)/, async (req, res) => {
     if (fullPath.startsWith('products/')) {
       const slug = fullPath.split('/')[1];
       if (slug) {
-        const product = await Product.findOne({ $or: [{ slug }, { _id: slug.length === 24 ? slug : null }] }).select('name slug description images price stock ratings SKU').lean();
+        const product = await Product.findOne({ $or: [{ slug }, { _id: slug.length === 24 ? slug : null }] })
+          .select('name slug description images price stock ratings SKU reviews')
+          .populate({
+            path: 'reviews',
+            match: { isApproved: true },
+            populate: { path: 'user', select: 'name' }
+          })
+          .lean();
+
         if (product) {
           title = `${product.name} | ${siteName}`;
           description = product.description || description;
@@ -295,6 +303,20 @@ app.get(/^\/bot-render\/(.*)/, async (req, res) => {
             <p>${product.description}</p>
             <p><strong>Price:</strong> Rs. ${product.price}</p>
           `;
+
+          const formattedReviews = Array.isArray(product.reviews) ? product.reviews.map(r => ({
+            "@type": "Review",
+            "reviewRating": {
+              "@type": "Rating",
+              "ratingValue": r.rating,
+              "bestRating": 5
+            },
+            "author": {
+              "@type": "Person",
+              "name": r.user?.name || "Verified Buyer"
+            },
+            "reviewBody": r.comment || "Great product"
+          })) : [];
 
           // Generate Google Rich Results Structured Data
           jsonLd = {
@@ -312,14 +334,20 @@ app.get(/^\/bot-render\/(.*)/, async (req, res) => {
               "aggregateRating": {
                 "@type": "AggregateRating",
                 "ratingValue": product.ratings.average,
-                "reviewCount": product.ratings.count
+                "reviewCount": product.ratings.count,
+                "bestRating": 5,
+                "worstRating": 1
               }
+            } : {}),
+            ...(formattedReviews.length > 0 ? {
+              "review": formattedReviews
             } : {}),
             "offers": {
               "@type": "Offer",
               "url": canonicalUrl,
               "priceCurrency": "PKR",
               "price": product.price,
+              "priceValidUntil": new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
               "availability": product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
               "seller": {
                 "@type": "Organization",
