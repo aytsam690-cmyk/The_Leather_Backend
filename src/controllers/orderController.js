@@ -21,7 +21,6 @@ const placeOrder = asyncHandler(async (req, res) => {
   // Validate items and use server-side prices
   const validatedItems = [];
   let serverSubtotal = 0;
-  const deductedItems = []; // Track successful deductions for rollback if needed
 
   for (let item of items) {
     // Atomic stock deduction — prevents overselling under concurrent load
@@ -32,16 +31,6 @@ const placeOrder = asyncHandler(async (req, res) => {
     );
 
     if (!product) {
-      // ── ROLLBACK: restore stock for all items already deducted ──────────
-      if (deductedItems.length > 0) {
-        await Promise.all(
-          deductedItems.map(d =>
-            Product.findByIdAndUpdate(d.product, { $inc: { stock: d.quantity } })
-          )
-        ).catch(err => console.error('[PlaceOrder] Rollback failed:', err.message));
-      }
-      // ────────────────────────────────────────────────────────────────────
-
       // Check if product exists at all or just out of stock
       const exists = await Product.findById(item.product);
       if (!exists) {
@@ -50,26 +39,6 @@ const placeOrder = asyncHandler(async (req, res) => {
       }
       res.status(400);
       throw new Error(`Insufficient stock for product: ${exists.name}`);
-    }
-
-    // Record this successful deduction for potential rollback
-    deductedItems.push({ product: item.product, quantity: item.quantity });
-
-    // Also decrement variant-level stock if a specific variant was ordered
-    if (item.variant && (item.variant.size || item.variant.color)) {
-      try {
-        await Product.findOneAndUpdate(
-          {
-            _id: item.product,
-            'variants.size': item.variant.size,
-            'variants.color': item.variant.color,
-            'variants.stock': { $gte: item.quantity }
-          },
-          { $inc: { 'variants.$.stock': -item.quantity } }
-        );
-      } catch (variantErr) {
-        console.error('[PlaceOrder] Variant stock update failed:', variantErr.message);
-      }
     }
 
     // Use the real price from DB, not the client-sent price
