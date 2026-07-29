@@ -10,7 +10,8 @@ const variantSchema = new mongoose.Schema({
 const imageSchema = new mongoose.Schema({
   url: { type: String, required: true },
   alt: { type: String },
-  isPrimary: { type: Boolean, default: false }
+  isPrimary: { type: Boolean, default: false },
+  variantId: { type: String, default: '' } // empty = default/untagged
 });
 
 const productSchema = new mongoose.Schema({
