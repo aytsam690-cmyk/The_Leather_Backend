@@ -128,9 +128,7 @@ const createProduct = asyncHandler(async (req, res) => {
 // @route   PUT /api/products/:id
 // @access  Private/Admin
 const updateProduct = asyncHandler(async (req, res) => {
-  console.log('[DEBUG updateProduct] ID:', req.params.id, '| req.body.price:', req.body.price, '| typeof:', typeof req.body.price, '| full body keys:', Object.keys(req.body));
   const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-  console.log('[DEBUG updateProduct] Saved product.price:', product?.price);
   if (product) {
     res.json(product);
   } else {
